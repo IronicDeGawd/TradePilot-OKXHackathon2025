@@ -19,7 +19,34 @@ import { okxService } from "@/lib/okx";
 import { CACHE_KEYS, getFromCache, saveToCache } from "@/lib/cache-utils";
 import type { TrendingToken } from "@/types";
 
+// Default trending data to show while API loads
+const DEFAULT_TRENDING_TOKENS: TrendingToken[] = [
+  {
+    symbol: "SOL",
+    address: "So11111111111111111111111111111111111111112",
+    price: 142.35,
+    change24h: 2.1,
+    volume24h: 1527000,
+    marketCap: 66714341970,
+    socialMentions: 3500,
+    trendScore: 87,
+    lastUpdated: new Date(),
+  },
+  {
+    symbol: "JUP",
+    address: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    price: 0.72,
+    change24h: 5.8,
+    volume24h: 742000,
+    marketCap: 7200000000,
+    socialMentions: 2100,
+    trendScore: 93,
+    lastUpdated: new Date(),
+  },
+];
+
 export default function TrendingPage() {
+  // Start with default data while real data loads
   const [trendingTokens, setTrendingTokens] = useState<TrendingToken[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -27,40 +54,61 @@ export default function TrendingPage() {
   const [sortBy, setSortBy] = useState<
     "trendScore" | "change24h" | "volume24h"
   >("trendScore");
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
 
   useEffect(() => {
-    // First try to load from cache
+    // First load default data if no cached data
+    if (trendingTokens.length === 0) {
+      setTrendingTokens(DEFAULT_TRENDING_TOKENS);
+    }
+
+    // Then try to load from cache
     loadCachedData();
-    // Then fetch fresh data
-    loadTrendingData();
+
+    // Then fetch fresh data with slight delay to improve perceived performance
+    const timer = setTimeout(() => {
+      loadTrendingData();
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const loadCachedData = () => {
     if (typeof window === "undefined") return;
 
+    console.log("Attempting to load trending data from cache...");
     const cachedTrending = getFromCache<TrendingToken[]>(
       CACHE_KEYS.TRENDING_DATA
     );
-    if (cachedTrending) {
+
+    if (
+      cachedTrending &&
+      Array.isArray(cachedTrending.data) &&
+      cachedTrending.data.length > 0
+    ) {
+      console.log(
+        `Loaded ${cachedTrending.data.length} trending tokens from cache`
+      );
       setTrendingTokens(cachedTrending.data);
       setIsRefreshing(cachedTrending.isStale);
       setIsLoading(false);
 
-      // Set last updated timestamp from cache
+      // Set last updated timestamp from cache directly from the cachedTrending object
       try {
         const cachedItem = localStorage.getItem(CACHE_KEYS.TRENDING_DATA);
         if (cachedItem) {
-          const { timestamp } = JSON.parse(cachedItem);
-          if (timestamp) {
-            const date = new Date();
-            date.setTime(timestamp);
+          const parsedItem = JSON.parse(cachedItem);
+          if (parsedItem && parsedItem.timestamp) {
+            const date = new Date(parsedItem.timestamp);
             setLastUpdated(date);
+            console.log(`Last updated: ${date.toLocaleString()}`);
           }
         }
       } catch (e) {
         console.error("Error parsing cached timestamp:", e);
       }
+    } else {
+      console.log("No valid trending data found in cache");
     }
   };
 
@@ -71,21 +119,44 @@ export default function TrendingPage() {
     }
 
     try {
-      const response = await fetch("/api/trending");
+      console.log("Fetching trending data from API...");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+      const response = await fetch("/api/trending", {
+        signal: controller.signal,
+        cache: "no-store",
+      });
+
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error("Failed to fetch trending data");
+        throw new Error(`Failed to fetch trending data: ${response.status}`);
       }
 
       const data = await response.json();
-      setTrendingTokens(data);
-      setLastUpdated(new Date());
+      console.log(`Received ${data.length} trending tokens from API`);
 
-      // Cache the data
-      if (typeof window !== "undefined") {
-        saveToCache(CACHE_KEYS.TRENDING_DATA, data);
+      if (Array.isArray(data) && data.length > 0) {
+        setTrendingTokens(data);
+        setLastUpdated(new Date());
+
+        // Cache the data
+        if (typeof window !== "undefined") {
+          saveToCache(CACHE_KEYS.TRENDING_DATA, data);
+        }
+      } else {
+        console.error("API returned empty or invalid trending data");
       }
     } catch (error) {
       console.error("Error loading trending data:", error);
+      // If we have cached data, keep using it
+      const cachedTrending = getFromCache<TrendingToken[]>(
+        CACHE_KEYS.TRENDING_DATA
+      );
+      if (cachedTrending && !trendingTokens.length) {
+        setTrendingTokens(cachedTrending.data);
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -192,15 +263,19 @@ export default function TrendingPage() {
           </div>
           <button
             onClick={loadTrendingData}
-            className="btn-secondary flex items-center space-x-2"
+            className={`flex items-center space-x-2 ${
+              isLoading || isRefreshing
+                ? "btn-secondary opacity-80"
+                : "btn-secondary"
+            }`}
             disabled={isLoading || isRefreshing}
           >
             <RefreshCw
               className={`w-4 h-4 ${
-                isLoading || isRefreshing ? "animate-spin" : ""
+                isLoading || isRefreshing ? "animate-spin text-blue-400" : ""
               }`}
             />
-            <span>Refresh</span>
+            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
           </button>
         </div>
       </header>
