@@ -5,16 +5,10 @@ import { client } from '../DexClient';
  */
 async function getInfo() {
   try {
-    // Get supported chains
-    console.log('Getting supported chains...');
-    const chains = await client.dex.getSupportedChains('501');
-    console.log('Supported chains:');
-    console.log(JSON.stringify(chains, null, 2));
-
     // Get Solana tokens
-    console.log('\nGetting Solana tokens...');
+    console.log('Getting Solana tokens...');
     const tokens = await client.dex.getTokens('501');
-    console.log(`Found ${tokens.data.length} tokens on BASE.`);
+    console.log(`Found ${tokens.data.length} tokens on Solana.`);
     console.log('First 5 tokens:');
     console.log(JSON.stringify(tokens.data.slice(0, 5), null, 2));
 
@@ -24,7 +18,12 @@ async function getInfo() {
     console.log('Liquidity sources:');
     console.log(JSON.stringify(liquidity, null, 2));
 
-    return { chains, tokens, liquidity };
+    // Display supported chain information
+    console.log('\nSupported chain information:');
+    console.log('Chain Index: 501 (Solana)');
+    console.log('Network: Solana');
+
+    return { tokens, liquidity };
   } catch (error) {
     if (error instanceof Error) {
       console.error('Error getting information:', error.message);
