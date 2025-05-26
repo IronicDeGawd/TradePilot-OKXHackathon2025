@@ -2,6 +2,7 @@
 import crypto from 'crypto';
 import { globalRateLimiter } from './rate-limiter';
 import { constructApiUrl } from './url-utils';
+import { SOLANA_TOKENS } from '../config/tokens';
 export const OKX_CHAIN_INDEX = {
   ETHEREUM: '1',
   BSC: '56',
@@ -15,19 +16,16 @@ export const OKX_CHAIN_INDEX = {
   LINEA: '59144'
 } as const;
 
-// Common Solana token contract addresses (SPL tokens)
-export const SOLANA_TOKEN_ADDRESSES = {
-  SOL: 'So11111111111111111111111111111111111111112',
-  USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-  JUP: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
-  RAY: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
-  ORCA: 'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',
-  JTO: 'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL',
-  BONK: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-  WIF: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-  PYTH: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',
-} as const;
+// Use centralized token configuration - convert to address mapping
+const createTokenAddressMapping = () => {
+  const mapping: { [key: string]: string } = {};
+  Object.values(SOLANA_TOKENS).forEach(token => {
+    mapping[token.symbol] = token.address;
+  });
+  return mapping;
+};
+
+export const SOLANA_TOKEN_ADDRESSES = createTokenAddressMapping();
 
 export interface OKXDEXPriceRequest {
   chainIndex: string;

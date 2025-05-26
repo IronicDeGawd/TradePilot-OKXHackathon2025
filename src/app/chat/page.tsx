@@ -47,6 +47,13 @@ Try one of the prompts below or ask me anything about crypto trading!
   const [showPrompts, setShowPrompts] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const formatTime = (date: Date) => {
+    return `${date.getHours().toString().padStart(2, "0")}:${date
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}`;
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -215,7 +222,7 @@ Try one of the prompts below or ask me anything about crypto trading!
                     <div className="whitespace-pre-wrap">{message.content}</div>
                   )}
                   <div className="text-xs text-gray-400 mt-2">
-                    {message.timestamp.toLocaleTimeString()}
+                    {formatTime(message.timestamp)}
                   </div>
                 </div>
               </div>

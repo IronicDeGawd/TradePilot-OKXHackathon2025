@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { getAllTokenSymbols, getTokenBySymbol, MARKET_CAP_ESTIMATES, SOCIAL_MULTIPLIERS } from '../config/tokens';
 
 interface OKXCEXConfig {
   apiKey: string;
@@ -98,12 +99,12 @@ class OKXCEXService {
   async getTrendingTokens(): Promise<any[]> {
     try {
       // Get market data for major Solana tokens
-      const solanaTokens = ['SOL', 'JUP', 'RAY', 'ORCA', 'JTO', 'BONK', 'WIF', 'PYTH', 'MNGO'];
+      const solanaTokens = getAllTokenSymbols();
       const marketData = await this.getMarketData(solanaTokens);
 
       // Get 24h candle data for trend analysis
       const trendingData = await Promise.all(
-        marketData.slice(0, 10).map(async (ticker) => {
+        marketData.map(async (ticker) => {
           try {
             const symbol = ticker.instId.split('-')[0];
             const candlePath = `/api/v5/market/candles?instId=${ticker.instId}&bar=1D&limit=2`;
@@ -186,39 +187,20 @@ class OKXCEXService {
   }
 
   private getTokenAddress(symbol: string): string {
-    const addresses: { [key: string]: string } = {
-      'SOL': 'So11111111111111111111111111111111111111112',
-      'JUP': 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
-      'RAY': '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
-      'ORCA': 'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',
-      'JTO': 'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL',
-      'BONK': 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-      'WIF': 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-      'PYTH': 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',
-      'MNGO': 'MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac',
-      'USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-    };
-
-    return addresses[symbol] || '';
+    const token = getTokenBySymbol(symbol);
+    return token?.address || '';
   }
 
   private estimateMarketCap(symbol: string, price: number): number {
-    // Rough estimates for market cap calculation
-    const supplies: { [key: string]: number } = {
-      'SOL': 580_000_000,
-      'JUP': 1_000_000_000,
-      'RAY': 555_000_000,
-      'ORCA': 100_000_000,
-      'JTO': 100_000_000,
-      'BONK': 69_474_461_231_726,
-      'WIF': 998_926_392,
-      'PYTH': 4_000_000_000,
-      'MNGO': 10_000_000_000,
-      'USDC': 3_400_000_000
-    };
+    const estimatedCap = MARKET_CAP_ESTIMATES[symbol];
+    if (estimatedCap) {
+      // Use live price with estimated supply ratio
+      const estimatedSupply = estimatedCap / 100; // Assuming $100 base price for ratio
+      return price * estimatedSupply;
+    }
 
-    const supply = supplies[symbol] || 1_000_000_000;
-    return price * supply;
+    // Default fallback
+    return price * 1000000000;
   }
 
   /**
@@ -232,21 +214,8 @@ class OKXCEXService {
     // Price volatility component (big moves generate discussion)
     const volatilityComponent = Math.abs(change24h) * 10;
 
-    // Token popularity multiplier based on market position
-    const popularityMultipliers: { [key: string]: number } = {
-      'SOL': 1.5,     // Major L1
-      'JUP': 1.3,     // Popular DEX
-      'RAY': 1.2,     // Established DeFi
-      'BONK': 1.4,    // Meme coin = high social activity
-      'WIF': 1.4,     // Another meme with high social presence
-      'PYTH': 1.1,    // Oracle network
-      'ORCA': 1.1,    // DEX
-      'JTO': 1.0,     // Newer token
-      'MNGO': 1.0,    // Established but lower activity
-      'USDC': 0.7     // Stablecoin = lower social activity
-    };
-
-    const multiplier = popularityMultipliers[symbol] || 1.0;
+    // Use centralized social multipliers
+    const multiplier = SOCIAL_MULTIPLIERS[symbol] || 1.0;
 
     // Calculate estimated mentions with reasonable bounds
     const estimatedMentions = Math.floor((volumeComponent + volatilityComponent) * multiplier) + 50;

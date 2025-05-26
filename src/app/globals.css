@@ -58,7 +58,7 @@
   }
 
   .card {
-    @apply bg-dark-card rounded-xl border border-dark-border p-6 shadow-lg backdrop-blur-sm;
+    @apply bg-dark-card rounded-xl border border-dark-border p-4 md:p-6 shadow-lg backdrop-blur-sm;
   }
 
   .btn-primary {

@@ -10,30 +10,11 @@ import { geminiService } from './lib/gemini';
 import { solanaWallet } from './lib/solana-wallet';
 import 'dotenv/config';
 
-// Common Solana token addresses
-export const TOKENS = {
-  SOL: 'So11111111111111111111111111111111111111112',   // Native SOL
-  USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-  USDT: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
-  JUP: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
-  RAY: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
-  ORCA: 'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',
-  JTO: 'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL',
-  BONK: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-  WIF: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-  PYTH: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',
-  MNGO: 'MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac'
-};
+// Import centralized token configuration
+import { TOKENS, CHAIN_INDICES, SOLANA_TOKENS, getTokenBySymbol, getTokenByAddress } from './config/tokens';
 
-// Chain indices for OKX DEX API
-export const CHAIN_INDICES = {
-  SOLANA: '501',
-  ETHEREUM: '1',
-  BSC: '56',
-  POLYGON: '137',
-  ARBITRUM: '42161',
-  OPTIMISM: '10'
-};
+// Export for external use
+export { TOKENS, CHAIN_INDICES, SOLANA_TOKENS, getTokenBySymbol, getTokenByAddress } from './config/tokens';
 
 // Initialize OKX DEX SDK client for swaps and basic operations
 const initOKXSDKClient = () => {

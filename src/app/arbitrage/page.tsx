@@ -124,6 +124,13 @@ export default function ArbitragePage() {
     return `$${volume.toFixed(0)}`;
   };
 
+  const formatTime = (date: Date) => {
+    return `${date.getHours().toString().padStart(2, "0")}:${date
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}`;
+  };
+
   const getSpreadColor = (spreadPercentage: number) => {
     if (spreadPercentage > 0.5) return "text-green-400";
     if (spreadPercentage > 0) return "text-green-300";
@@ -181,9 +188,7 @@ export default function ArbitragePage() {
           <div className="flex items-center space-x-3">
             <div className="text-right text-sm">
               <div className="text-gray-400">Last updated:</div>
-              <div className="text-white">
-                {lastUpdated.toLocaleTimeString()}
-              </div>
+              <div className="text-white">{formatTime(lastUpdated)}</div>
             </div>
             <button
               onClick={loadArbitrageData}

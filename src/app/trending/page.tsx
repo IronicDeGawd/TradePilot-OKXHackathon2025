@@ -13,6 +13,7 @@ import {
   Flame,
   Eye,
   DollarSign,
+  AlertCircle,
 } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { okxService } from "@/lib/okx";
@@ -54,9 +55,14 @@ export default function TrendingPage() {
   const [sortBy, setSortBy] = useState<
     "trendScore" | "change24h" | "volume24h"
   >("trendScore");
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(new Date());
+  // Timeframe switching is WIP - currently all data is 24h
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    // Set mounted state to prevent hydration errors
+    setIsMounted(true);
+
     // First load default data if no cached data
     if (trendingTokens.length === 0) {
       setTrendingTokens(DEFAULT_TRENDING_TOKENS);
@@ -101,7 +107,7 @@ export default function TrendingPage() {
           if (parsedItem && parsedItem.timestamp) {
             const date = new Date(parsedItem.timestamp);
             setLastUpdated(date);
-            console.log(`Last updated: ${date.toLocaleString()}`);
+            console.log(`Last updated: ${formatTime(date)}`);
           }
         }
       } catch (e) {
@@ -192,6 +198,13 @@ export default function TrendingPage() {
     return `$${volume.toFixed(0)}`;
   };
 
+  const formatTime = (date: Date) => {
+    return `${date.getHours().toString().padStart(2, "0")}:${date
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}`;
+  };
+
   const getTrendScoreColor = (score: number) => {
     if (score >= 90) return "text-red-400";
     if (score >= 75) return "text-orange-400";
@@ -238,32 +251,34 @@ export default function TrendingPage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Link href="/" className="text-gray-400 hover:text-white">
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
             </Link>
-            <Flame className="w-8 h-8 text-primary-500" />
+            <Flame className="w-6 h-6 md:w-8 md:h-8 text-primary-500" />
             <div>
-              <h1 className="text-xl font-bold">Trending Radar</h1>
-              <div className="flex items-center">
-                <p className="text-sm text-gray-400 mr-2">
+              <h1 className="text-lg md:text-xl font-bold">Trending Radar</h1>
+              <div className="flex flex-col md:flex-row md:items-center">
+                <p className="text-xs md:text-sm text-gray-400 md:mr-2">
                   Hot tokens with momentum & buzz
                 </p>
-                {lastUpdated && (
-                  <span className="text-xs text-gray-500">
-                    Updated: {lastUpdated.toLocaleTimeString()}
-                  </span>
-                )}
-                {isRefreshing && (
-                  <span className="flex items-center text-xs text-blue-400 ml-2">
-                    <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-                    Refreshing...
-                  </span>
-                )}
+                <div className="flex items-center mt-1 md:mt-0">
+                  {lastUpdated && isMounted && (
+                    <span className="text-xs text-gray-500">
+                      Updated: {formatTime(lastUpdated)}
+                    </span>
+                  )}
+                  {isRefreshing && (
+                    <span className="flex items-center text-xs text-blue-400 ml-2">
+                      <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                      Refreshing...
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
           <button
             onClick={loadTrendingData}
-            className={`flex items-center space-x-2 ${
+            className={`flex items-center space-x-1 md:space-x-2 px-3 py-1 md:px-4 md:py-2 ${
               isLoading || isRefreshing
                 ? "btn-secondary opacity-80"
                 : "btn-secondary"
@@ -275,36 +290,44 @@ export default function TrendingPage() {
                 isLoading || isRefreshing ? "animate-spin text-blue-400" : ""
               }`}
             />
-            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
+            <span className="text-sm md:text-base">
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </span>
           </button>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
         {/* Controls */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 w-full">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-400">Timeframe:</span>
-              <div className="flex bg-dark-card rounded-lg p-1">
-                {["1h", "24h", "7d"].map((tf) => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeframe(tf as any)}
-                    className={`px-3 py-1 text-sm rounded ${
-                      timeframe === tf
-                        ? "bg-primary-600 text-white"
-                        : "text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    {tf}
-                  </button>
-                ))}
+              <span className="text-sm text-gray-400">
+                <AlertCircle className="w-4 h-4 inline mr-1 text-yellow-500" />
+                WIP Timeframe:
+              </span>
+              <div className="relative flex space-x-1">
+                <div className="flex bg-dark-card rounded-lg p-1">
+                  {["1h", "24h", "7d"].map((tf) => (
+                    <button
+                      key={tf}
+                      onClick={() => setTimeframe(tf as any)}
+                      className={`px-3 py-1 text-sm rounded ${
+                        timeframe === tf
+                          ? "bg-primary-600 text-white"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                      disabled={true}
+                    >
+                      {tf}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mt-4 sm:mt-0">
             <span className="text-sm text-gray-400">Sort by:</span>
             <select
               value={sortBy}
@@ -319,18 +342,18 @@ export default function TrendingPage() {
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="card">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+          <div className="card p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Trending Tokens</p>
                 <p className="text-2xl font-bold">{trendingTokens.length}</p>
               </div>
-              <Flame className="w-8 h-8 text-orange-400" />
+              <Flame className="w-6 h-6 md:w-8 md:h-8 text-orange-400" />
             </div>
           </div>
 
-          <div className="card">
+          <div className="card p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Avg Trend Score</p>
@@ -341,29 +364,29 @@ export default function TrendingPage() {
                           (sum, token) => sum + token.trendScore,
                           0
                         ) / trendingTokens.length
-                      ).toFixed(0)
-                    : "0"}
+                      ).toFixed(2)
+                    : "0.00"}
                 </p>
               </div>
-              <BarChart3 className="w-8 h-8 text-yellow-400" />
+              <BarChart3 className="w-6 h-6 md:w-8 md:h-8 text-yellow-400" />
             </div>
           </div>
 
-          <div className="card">
+          <div className="card p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">Social Mentions</p>
+                <p className="text-gray-400 text-sm">Social Mentions*</p>
                 <p className="text-2xl font-bold text-blue-400">
                   {trendingTokens
                     .reduce((sum, token) => sum + token.socialMentions, 0)
-                    .toLocaleString()}
+                    .toString()}
                 </p>
               </div>
-              <MessageCircle className="w-8 h-8 text-blue-400" />
+              <MessageCircle className="w-6 h-6 md:w-8 md:h-8 text-blue-400" />
             </div>
           </div>
 
-          <div className="card">
+          <div className="card p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Total Volume</p>
@@ -376,12 +399,12 @@ export default function TrendingPage() {
                   )}
                 </p>
               </div>
-              <DollarSign className="w-8 h-8 text-green-400" />
+              <DollarSign className="w-6 h-6 md:w-8 md:h-8 text-green-400" />
             </div>
           </div>
         </div>
 
-        {/* Trending Tokens List */}
+        {/* Trending Tokens Table */}
         <div className="card">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">🔥 Trending Tokens</h2>
@@ -400,26 +423,37 @@ export default function TrendingPage() {
             </div>
           ) : (
             <div
-              className={`space-y-4 ${
+              className={`${
                 isRefreshing ? "opacity-80 transition-opacity" : ""
               }`}
             >
-              {getSortedTokens().map((token, index) => (
-                <div
-                  key={index}
-                  className="p-4 bg-dark-bg rounded-lg border border-dark-border hover:border-primary-500/50 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-2xl font-bold text-gray-500">
-                          #{index + 1}
+              {/* Table Header - Hidden on mobile */}
+              <div className="hidden md:grid md:grid-cols-8 gap-4 p-4 border-b border-dark-border text-sm text-gray-400 font-semibold">
+                <div className="col-span-2">Token</div>
+                <div className="text-right">Price</div>
+                <div className="text-right">24h Change</div>
+                <div className="text-right">Volume 24h</div>
+                <div className="text-right">Market Cap</div>
+                <div className="text-right">Social Buzz</div>
+                <div className="text-right">Trend Score</div>
+              </div>
+
+              {/* Token Rows */}
+              <div className="space-y-2 md:space-y-0">
+                {getSortedTokens().map((token, index) => (
+                  <div
+                    key={index}
+                    className="group p-4 bg-dark-bg md:bg-transparent rounded-lg md:rounded-none border border-dark-border md:border-0 md:border-b md:border-dark-border hover:bg-dark-card/50 transition-colors md:grid md:grid-cols-8 md:gap-4 md:items-center relative"
+                  >
+                    {/* Token Info - Mobile: Full width, Desktop: 2 columns */}
+                    <div className="col-span-2 flex items-center space-x-3 mb-4 md:mb-0">
+                      <span className="text-lg font-bold text-gray-500 min-w-[2rem]">
+                        #{index + 1}
+                      </span>
+                      <div className="w-10 h-10 bg-primary-500/20 rounded-full flex items-center justify-center">
+                        <span className="font-bold text-primary-400">
+                          {token.symbol.charAt(0)}
                         </span>
-                        <div className="w-12 h-12 bg-primary-500/20 rounded-full flex items-center justify-center">
-                          <span className="font-bold text-primary-400">
-                            {token.symbol.charAt(0)}
-                          </span>
-                        </div>
                       </div>
                       <div>
                         <div className="flex items-center space-x-2">
@@ -434,28 +468,29 @@ export default function TrendingPage() {
                             {getTrendScoreLabel(token.trendScore)}
                           </div>
                         </div>
-                        <p className="text-sm text-gray-400">
+                        <p className="text-sm text-gray-400 md:hidden">
                           Market Cap: {formatMarketCap(token.marketCap)}
                         </p>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-6 text-center">
+                    {/* Mobile: Grid layout for stats */}
+                    <div className="grid grid-cols-2 gap-3 mb-4 md:hidden">
                       <div>
                         <p className="text-xs text-gray-400 mb-1">Price</p>
-                        <p className="font-semibold">
+                        <p className="text-sm font-semibold">
                           {formatCurrency(token.price)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-400 mb-1">24h Change</p>
                         <div
-                          className={`flex items-center justify-center space-x-1 ${getChangeColor(
+                          className={`flex items-center space-x-1 ${getChangeColor(
                             token.change24h
                           )}`}
                         >
                           {getChangeIcon(token.change24h)}
-                          <span className="font-bold">
+                          <span className="text-sm font-bold">
                             {token.change24h >= 0 ? "+" : ""}
                             {token.change24h.toFixed(1)}%
                           </span>
@@ -463,49 +498,115 @@ export default function TrendingPage() {
                       </div>
                       <div>
                         <p className="text-xs text-gray-400 mb-1">Volume 24h</p>
-                        <p className="font-semibold">
+                        <p className="text-sm font-semibold">
                           {formatVolume(token.volume24h)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-400 mb-1">
-                          Social Buzz*
+                          Social Buzz
                         </p>
-                        <div className="flex items-center justify-center space-x-1">
+                        <div className="flex items-center space-x-1">
                           <MessageCircle className="w-3 h-3 text-blue-400" />
-                          <span className="font-semibold text-blue-400">
+                          <span className="text-sm font-semibold text-blue-400">
                             {token.socialMentions}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <div className="text-right">
+                    {/* Desktop: Individual columns */}
+                    <div className="hidden md:block text-right">
+                      <p className="font-semibold">
+                        {formatCurrency(token.price)}
+                      </p>
+                    </div>
+
+                    <div className="hidden md:block text-right">
+                      <div
+                        className={`flex items-center justify-end space-x-1 ${getChangeColor(
+                          token.change24h
+                        )}`}
+                      >
+                        {getChangeIcon(token.change24h)}
+                        <span className="font-bold">
+                          {token.change24h >= 0 ? "+" : ""}
+                          {token.change24h.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="hidden md:block text-right">
+                      <p className="font-semibold">
+                        {formatVolume(token.volume24h)}
+                      </p>
+                    </div>
+
+                    <div className="hidden md:block text-right">
+                      <p className="font-semibold text-gray-300">
+                        {formatMarketCap(token.marketCap)}
+                      </p>
+                    </div>
+
+                    <div className="hidden md:block text-right">
+                      <div className="flex items-center justify-end space-x-1">
+                        <MessageCircle className="w-3 h-3 text-blue-400" />
+                        <span className="font-semibold text-blue-400">
+                          {token.socialMentions}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="hidden md:block text-right">
+                      <p
+                        className={`text-xl font-bold ${getTrendScoreColor(
+                          token.trendScore
+                        )}`}
+                      >
+                        {token.trendScore.toFixed(2)}
+                      </p>
+                    </div>
+
+                    {/* Mobile: Bottom row with trend score and analyze button */}
+                    <div className="flex items-center justify-between md:hidden">
+                      <div>
                         <p className="text-xs text-gray-400">Trend Score</p>
                         <p
-                          className={`text-2xl font-bold ${getTrendScoreColor(
+                          className={`text-xl font-bold ${getTrendScoreColor(
                             token.trendScore
                           )}`}
                         >
-                          {token.trendScore}
+                          {token.trendScore.toFixed(2)}
                         </p>
                       </div>
-                      <Link href="/chat" className="btn-secondary text-sm">
+                      <Link
+                        href="/chat"
+                        className="btn-secondary text-xs px-3 py-1"
+                      >
+                        Analyze
+                      </Link>
+                    </div>
+
+                    {/* Desktop: Analyze button overlay on hover */}
+                    <div className="hidden md:block absolute right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Link
+                        href="/chat"
+                        className="btn-secondary text-sm px-3 py-1"
+                      >
                         Analyze
                       </Link>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
 
         {/* Disclaimer */}
-        <div className="mt-8 card bg-blue-500/5 border-blue-500/20">
-          <div className="flex items-start space-x-3">
-            <Eye className="w-6 h-6 text-blue-400 mt-1" />
+        <div className="mt-8 card bg-blue-500/5 border-blue-500/20 p-4 md:p-6">
+          <div className="flex flex-col md:flex-row md:items-start md:space-x-3">
+            <Eye className="w-6 h-6 text-blue-400 mb-3 md:mb-0 md:mt-1" />
             <div>
               <h3 className="font-semibold text-blue-400 mb-2">
                 Trend Analysis

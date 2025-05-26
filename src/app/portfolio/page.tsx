@@ -108,6 +108,13 @@ export default function PortfolioPage() {
     return `${sign}${percentage.toFixed(2)}%`;
   };
 
+  const formatTime = (date: Date) => {
+    return `${date.getHours().toString().padStart(2, "0")}:${date
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}`;
+  };
+
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case "low":
@@ -191,7 +198,7 @@ export default function PortfolioPage() {
                         {formatCurrency(portfolio.totalValue)}
                       </div>
                       <div className="text-sm text-gray-400">
-                        Last updated: {lastUpdated.toLocaleTimeString()}
+                        Last updated: {formatTime(lastUpdated)}
                       </div>
                     </div>
                   </div>

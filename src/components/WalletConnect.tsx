@@ -19,6 +19,7 @@ export default function WalletConnect() {
     network: null,
   });
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showWalletOptions, setShowWalletOptions] = useState(false);
 
   useEffect(() => {
     // Check if already connected
@@ -48,8 +49,16 @@ export default function WalletConnect() {
 
   const connectSolanaWallet = async () => {
     setIsConnecting(true);
+
+    // Set a timeout to reset the connecting state if the user cancels the wallet dialog
+    const connectionTimeout = setTimeout(() => {
+      setIsConnecting(false);
+    }, 30000); // 30 seconds timeout
+
     try {
       const connection = await solanaWallet.connectPhantomWallet();
+      clearTimeout(connectionTimeout);
+
       if (connection) {
         setWallet({
           isConnected: true,
@@ -76,18 +85,35 @@ export default function WalletConnect() {
       }
     } catch (error) {
       console.error("Failed to connect wallet:", error);
+      // If the error includes "user rejected", it's a user cancellation
+      if (
+        error instanceof Error &&
+        (error.message.includes("user rejected") ||
+          error.message.includes("User rejected"))
+      ) {
+        console.log("User cancelled wallet connection");
+      }
     } finally {
+      clearTimeout(connectionTimeout);
       setIsConnecting(false);
     }
   };
 
   const connectEthereumWallet = async () => {
     setIsConnecting(true);
+
+    // Set a timeout to reset the connecting state if the user cancels the wallet dialog
+    const connectionTimeout = setTimeout(() => {
+      setIsConnecting(false);
+    }, 30000); // 30 seconds timeout
+
     try {
       if (typeof window !== "undefined" && (window as any).ethereum) {
         const accounts = await (window as any).ethereum.request({
           method: "eth_requestAccounts",
         });
+
+        clearTimeout(connectionTimeout);
 
         if (accounts.length > 0) {
           setWallet({
@@ -100,7 +126,19 @@ export default function WalletConnect() {
       }
     } catch (error) {
       console.error("Failed to connect Ethereum wallet:", error);
+
+      // Check for user rejection errors (MetaMask specific error codes and messages)
+      if (error instanceof Error) {
+        if (
+          error.message.includes("User rejected") ||
+          error.message.includes("user rejected") ||
+          (error as any).code === 4001
+        ) {
+          console.log("User cancelled Ethereum wallet connection");
+        }
+      }
     } finally {
+      clearTimeout(connectionTimeout);
       setIsConnecting(false);
     }
   };
@@ -168,23 +206,66 @@ export default function WalletConnect() {
           </button>
         </div>
       ) : (
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={connectSolanaWallet}
-            disabled={isConnecting}
-            className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            <Wallet className="w-4 h-4" />
-            <span>{isConnecting ? "Connecting..." : "Connect Solana"}</span>
-          </button>
-          <button
-            onClick={connectEthereumWallet}
-            disabled={isConnecting}
-            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
-          >
-            <Wallet className="w-4 h-4" />
-            <span>{isConnecting ? "Connecting..." : "Connect ETH"}</span>
-          </button>
+        <div className="relative">
+          {/* Generic connect button for mobile */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowWalletOptions(!showWalletOptions)}
+              className="md:hidden flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              <Wallet className="w-4 h-4" />
+              <span className="hidden sm:inline">Connect Wallet</span>
+              <span className="inline sm:hidden">Connect</span>
+            </button>
+
+            {/* Show these buttons on larger screens directly */}
+            <div className="hidden md:flex md:items-center md:space-x-2">
+              <button
+                onClick={connectSolanaWallet}
+                disabled={isConnecting}
+                className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <Wallet className="w-4 h-4" />
+                <span>{isConnecting ? "Connecting..." : "Connect Solana"}</span>
+              </button>
+              <button
+                onClick={connectEthereumWallet}
+                disabled={isConnecting}
+                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <Wallet className="w-4 h-4" />
+                <span>{isConnecting ? "Connecting..." : "Connect ETH"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Dropdown for mobile */}
+          {showWalletOptions && (
+            <div className="absolute right-0 top-12 z-50 w-48 md:hidden">
+              <div className="bg-gray-800 border border-gray-700 rounded-md shadow-lg p-2 flex flex-col space-y-2">
+                <button
+                  onClick={() => {
+                    connectSolanaWallet();
+                    setShowWalletOptions(false);
+                  }}
+                  disabled={isConnecting}
+                  className="flex items-center justify-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  <span>Connect Solana</span>
+                </button>
+                <button
+                  onClick={() => {
+                    connectEthereumWallet();
+                    setShowWalletOptions(false);
+                  }}
+                  disabled={isConnecting}
+                  className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  <span>Connect ETH</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

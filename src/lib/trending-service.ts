@@ -1,5 +1,6 @@
 // Trending service using OKX DEX APIs for price analysis
 import { okxDEXExtended, OKXCandlestickData, OKXTradeData } from './okx-dex-extended';
+import { TRENDING_TOKENS, MARKET_CAP_ESTIMATES, SOCIAL_MULTIPLIERS } from '../config/tokens';
 
 export interface TrendingToken {
   symbol: string;
@@ -14,14 +15,7 @@ export interface TrendingToken {
 }
 
 class TrendingService {
-  private popularSolanaTokens = [
-    { symbol: 'SOL', address: 'So11111111111111111111111111111111111111112' },
-    { symbol: 'JUP', address: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN' },
-    { symbol: 'RAY', address: '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R' },
-    { symbol: 'BONK', address: 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263' },
-    { symbol: 'WIF', address: 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm' },
-    { symbol: 'PYTH', address: 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3' }
-  ];
+  private popularSolanaTokens = TRENDING_TOKENS;
 
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -130,21 +124,15 @@ class TrendingService {
   }
 
   private estimateMarketCap(symbol: string, price: number): number {
-    // Simplified market cap estimation based on known circulating supplies
-    const supplies: { [key: string]: number } = {
-      'SOL': 467000000,
-      'JUP': 10000000000,
-      'RAY': 555000000,
-      'ORCA': 100000000,
-      'JTO': 1000000000,
-      'BONK': 75000000000000,
-      'WIF': 998926393,
-      'PYTH': 10000000000,
-      'MNGO': 10000000000
-    };
+    const estimatedCap = MARKET_CAP_ESTIMATES[symbol];
+    if (estimatedCap) {
+      // Use live price with estimated supply ratio
+      const estimatedSupply = estimatedCap / 100; // Assuming $100 base price for ratio
+      return price * estimatedSupply;
+    }
 
-    const supply = supplies[symbol] || 1000000000; // Default supply if unknown
-    return price * supply;
+    // Default fallback
+    return price * 1000000000;
   }
 
   /**
@@ -158,21 +146,8 @@ class TrendingService {
     // Price volatility component (big moves generate discussion)
     const volatilityComponent = Math.abs(change24h) * 10;
 
-    // Token popularity multiplier based on market position
-    const popularityMultipliers: { [key: string]: number } = {
-      'SOL': 1.5,     // Major L1
-      'JUP': 1.3,     // Popular DEX
-      'RAY': 1.2,     // Established DeFi
-      'BONK': 1.4,    // Meme coin = high social activity
-      'WIF': 1.4,     // Another meme with high social presence
-      'PYTH': 1.1,    // Oracle network
-      'ORCA': 1.1,    // DEX
-      'JTO': 1.0,     // Newer token
-      'MNGO': 1.0,    // Established but lower activity
-      'USDC': 0.7     // Stablecoin = lower social activity
-    };
-
-    const multiplier = popularityMultipliers[symbol] || 1.0;
+    // Use centralized social multipliers
+    const multiplier = SOCIAL_MULTIPLIERS[symbol] || 1.0;
 
     // Calculate estimated mentions with reasonable bounds
     const estimatedMentions = Math.floor((volumeComponent + volatilityComponent) * multiplier) + 50;

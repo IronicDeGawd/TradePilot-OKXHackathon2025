@@ -4,6 +4,7 @@ import { okxDEXExtended } from './okx-dex-extended';
 import { portfolioService } from './portfolio-service';
 import { trendingService } from './trending-service';
 import { solanaWallet } from './solana-wallet';
+import { TOKENS, getAllTokenSymbols, getTokenBySymbol } from '../config/tokens';
 
 export interface TrendingToken {
   symbol: string;
@@ -44,7 +45,7 @@ export interface Portfolio {
 }
 
 class OKXService {
-  private solanaTokens = ['SOL', 'JUP', 'RAY', 'ORCA', 'JTO', 'BONK', 'WIF', 'PYTH', 'MNGO'];
+  private solanaTokens = getAllTokenSymbols();
 
   async getTrendingTokens(): Promise<TrendingToken[]> {
     try {
@@ -202,19 +203,8 @@ class OKXService {
   }
 
   private getTokenAddress(symbol: string): string {
-    const addresses: { [key: string]: string } = {
-      'SOL': 'So11111111111111111111111111111111111111112',
-      'JUP': 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
-      'RAY': '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
-      'ORCA': 'orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE',
-      'JTO': 'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL',
-      'BONK': 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
-      'WIF': 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
-      'PYTH': 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',
-      'MNGO': 'MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac'
-    };
-
-    return addresses[symbol] || '';
+    const token = getTokenBySymbol(symbol);
+    return token?.address || '';
   }
 }
 

@@ -179,6 +179,13 @@ export default function MarketOverview() {
     }).format(amount);
   };
 
+  const formatTime = (date: Date) => {
+    return `${date.getHours().toString().padStart(2, "0")}:${date
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}`;
+  };
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -202,9 +209,7 @@ export default function MarketOverview() {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-2">
           <span className="text-xs text-gray-400">
-            {lastUpdated
-              ? `Last updated: ${lastUpdated.toLocaleTimeString()}`
-              : ""}
+            {lastUpdated ? `Last updated: ${formatTime(lastUpdated)}` : ""}
           </span>
           {isRefreshing && (
             <span className="flex items-center text-xs text-blue-400">
@@ -266,7 +271,7 @@ export default function MarketOverview() {
             <div>
               <p className="text-gray-400 text-sm">Active Traders*</p>
               <p className="text-2xl font-bold text-white">
-                {marketStats.activeTraders.toLocaleString()}
+                {marketStats.activeTraders.toString()}
               </p>
             </div>
             <Users className="w-8 h-8 text-purple-400" />
