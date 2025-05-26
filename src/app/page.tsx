@@ -77,7 +77,7 @@ export default function HomePage() {
         topTrending: trendingData[0] || null,
         totalOpportunities: arbitrageData.filter(
           (op: ArbitrageOpportunity) =>
-            op.spreadPercentage != null && Math.abs(op.spreadPercentage) > 0.5
+            op.profitPercent != null && Math.abs(op.profitPercent) > 0.5
         ).length,
       };
 

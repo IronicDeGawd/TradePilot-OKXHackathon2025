@@ -25,7 +25,7 @@ export default function ArbitragePage() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [alertThreshold, setAlertThreshold] = useState(1.0);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
@@ -34,6 +34,11 @@ export default function ArbitragePage() {
     loadCachedData();
     // Then fetch fresh data
     loadArbitrageData();
+
+    // Set the last updated time on client-side only
+    if (typeof window !== "undefined") {
+      setLastUpdated(new Date());
+    }
   }, []);
 
   const loadCachedData = () => {
@@ -47,7 +52,7 @@ export default function ArbitragePage() {
       setIsRefreshing(cachedArbitrage.isStale);
       setIsLoading(false);
 
-      // Set last updated timestamp from cache
+      // Set last updated timestamp from cache on client-side only
       try {
         const cachedItem = localStorage.getItem(CACHE_KEYS.ARBITRAGE_DATA);
         if (cachedItem) {
@@ -91,11 +96,13 @@ export default function ArbitragePage() {
       }
 
       setOpportunities(data);
-      const currentTime = new Date();
-      setLastUpdated(currentTime);
 
-      // Cache the data
+      // Only update the timestamp on the client side
       if (typeof window !== "undefined") {
+        const currentTime = new Date();
+        setLastUpdated(currentTime);
+
+        // Cache the data
         saveToCache(CACHE_KEYS.ARBITRAGE_DATA, data);
       }
     } catch (error) {
@@ -124,7 +131,8 @@ export default function ArbitragePage() {
     return `$${volume.toFixed(0)}`;
   };
 
-  const formatTime = (date: Date) => {
+  const formatTime = (date: Date | null) => {
+    if (!date) return "--:--:--";
     return `${date.getHours().toString().padStart(2, "0")}:${date
       .getMinutes()
       .toString()
@@ -146,11 +154,30 @@ export default function ArbitragePage() {
     );
   };
 
-  const sortedOpportunities = opportunities.sort(
+  // Filter out duplicate tokens by symbol and keep the one with higher profit percent
+  const uniqueOpportunities = opportunities.reduce(
+    (unique: ArbitrageOpportunity[], opp) => {
+      const existingIndex = unique.findIndex(
+        (item) => item.symbol === opp.symbol
+      );
+      if (existingIndex === -1) {
+        unique.push(opp);
+      } else if (
+        Math.abs(opp.profitPercent) >
+        Math.abs(unique[existingIndex].profitPercent)
+      ) {
+        unique[existingIndex] = opp;
+      }
+      return unique;
+    },
+    []
+  );
+
+  const sortedOpportunities = uniqueOpportunities.sort(
     (a, b) => Math.abs(b.profitPercent) - Math.abs(a.profitPercent)
   );
 
-  const profitableOpportunities = opportunities.filter(
+  const profitableOpportunities = uniqueOpportunities.filter(
     (op) => op.profitPercent > 0.1
   );
   const totalVolume = opportunities.reduce((sum, op) => sum + op.volume24h, 0);
@@ -213,7 +240,9 @@ export default function ArbitragePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Total Opportunities</p>
-                <p className="text-2xl font-bold">{opportunities.length}</p>
+                <p className="text-2xl font-bold">
+                  {uniqueOpportunities.length}
+                </p>
               </div>
               <Activity className="w-8 h-8 text-blue-400" />
             </div>
