@@ -1,0 +1,49 @@
+{
+  "name": "okx-dex-project",
+  "version": "1.0.0",
+  "description": "Project using OKX DEX SDK for Solana network DEX operations",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "build-sdk": "tsc",
+    "test": "jest"
+  },
+  "keywords": [
+    "okx",
+    "dex",
+    "solana",
+    "swap",
+    "sdk"
+  ],
+  "author": "Julian Martinez",
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.0.1",
+    "@okx-dex/okx-dex-sdk": "^1.0.10",
+    "@solana/web3.js": "^1.98.2",
+    "@types/react": "^19.1.5",
+    "@types/react-dom": "^19.1.5",
+    "autoprefixer": "^10.4.21",
+    "dotenv": "^16.5.0",
+    "lucide-react": "^0.511.0",
+    "next": "^15.1.8",
+    "postcss": "^8.5.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "tailwindcss": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.13.5",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}
