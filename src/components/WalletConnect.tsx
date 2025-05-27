@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Wallet, LogOut, ExternalLink } from "lucide-react";
+import { Wallet, LogOut, ExternalLink, PieChart } from "lucide-react";
+import Link from "next/link";
 import { solanaWallet } from "@/lib/solana-wallet";
+import { isMobileDevice } from "@/lib/device-utils";
 
 interface WalletState {
   isConnected: boolean;
   address: string | null;
   balance: number;
-  network: "solana" | "ethereum" | null;
+  network: "solana" | "ethereum" | "demo" | null;
+  isDemo?: boolean;
 }
 
 export default function WalletConnect() {
@@ -17,17 +20,31 @@ export default function WalletConnect() {
     address: null,
     balance: 0,
     network: null,
+    isDemo: false,
   });
   const [isConnecting, setIsConnecting] = useState(false);
   const [showWalletOptions, setShowWalletOptions] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    // Check if mobile device
+    setIsMobile(isMobileDevice());
     // Check if already connected
     checkExistingConnection();
   }, []);
 
   const checkExistingConnection = async () => {
     try {
+      // Check if we were in demo mode
+      if (typeof window !== "undefined") {
+        const walletMode = localStorage.getItem("walletMode");
+        if (walletMode === "demo") {
+          await connectDemoWallet();
+          return;
+        }
+      }
+
+      // Check for real wallet connections
       if (typeof window !== "undefined" && (window as any).solana) {
         const phantom = (window as any).solana;
         if (phantom.isConnected) {
@@ -39,11 +56,67 @@ export default function WalletConnect() {
             address: phantom.publicKey.toString(),
             balance,
             network: "solana",
+            isDemo: false,
           });
         }
       }
     } catch (error) {
       console.error("Error checking existing connection:", error);
+    }
+  };
+
+  const connectDemoWallet = async () => {
+    try {
+      // Get demo wallet data from API to ensure consistency
+      const response = await fetch("/api/portfolio?demo=true");
+      if (response.ok) {
+        const portfolioData = await response.json();
+        setWallet({
+          isConnected: true,
+          address: portfolioData.walletAddress,
+          balance:
+            portfolioData.tokens.find((t: any) => t.symbol === "SOL")
+              ?.balance || 5,
+          network: "demo",
+          isDemo: true,
+        });
+
+        // Store demo mode in localStorage
+        if (typeof window !== "undefined") {
+          localStorage.setItem("walletMode", "demo");
+        }
+      } else {
+        // Fallback to local generation if API fails
+        const demoWallet = solanaWallet.generateDemoWallet();
+        setWallet({
+          isConnected: true,
+          address: demoWallet.address,
+          balance: demoWallet.balance,
+          network: "demo",
+          isDemo: true,
+        });
+
+        // Store demo mode in localStorage
+        if (typeof window !== "undefined") {
+          localStorage.setItem("walletMode", "demo");
+        }
+      }
+    } catch (error) {
+      console.error("Error connecting demo wallet:", error);
+      // Fallback to local generation
+      const demoWallet = solanaWallet.generateDemoWallet();
+      setWallet({
+        isConnected: true,
+        address: demoWallet.address,
+        balance: demoWallet.balance,
+        network: "demo",
+        isDemo: true,
+      });
+
+      // Store demo mode in localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("walletMode", "demo");
+      }
     }
   };
 
@@ -65,7 +138,13 @@ export default function WalletConnect() {
           address: connection.address,
           balance: connection.balance,
           network: "solana",
+          isDemo: false,
         });
+
+        // Store real wallet mode in localStorage
+        if (typeof window !== "undefined") {
+          localStorage.setItem("walletMode", "real");
+        }
       } else {
         // Use environment wallet if Phantom is not available
         const envWalletAddress = process.env.NEXT_PUBLIC_SOLANA_WALLET_ADDRESS;
@@ -76,7 +155,13 @@ export default function WalletConnect() {
             address: envWalletAddress,
             balance: balance,
             network: "solana",
+            isDemo: false,
           });
+
+          // Store real wallet mode in localStorage
+          if (typeof window !== "undefined") {
+            localStorage.setItem("walletMode", "real");
+          }
         } else {
           console.error(
             "No Phantom wallet found and no environment wallet configured"
@@ -121,7 +206,13 @@ export default function WalletConnect() {
             address: accounts[0],
             balance: 1.25,
             network: "ethereum",
+            isDemo: false,
           });
+
+          // Store real wallet mode in localStorage
+          if (typeof window !== "undefined") {
+            localStorage.setItem("walletMode", "real");
+          }
         }
       }
     } catch (error) {
@@ -157,7 +248,13 @@ export default function WalletConnect() {
       address: null,
       balance: 0,
       network: null,
+      isDemo: false,
     });
+
+    // Clear wallet mode from localStorage
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("walletMode");
+    }
   };
 
   const formatAddress = (address: string) => {
@@ -165,7 +262,7 @@ export default function WalletConnect() {
   };
 
   const openInExplorer = () => {
-    if (!wallet.address) return;
+    if (!wallet.address || wallet.isDemo) return;
 
     const explorerUrl =
       wallet.network === "solana"
@@ -179,79 +276,102 @@ export default function WalletConnect() {
     <div className="flex items-center space-x-3">
       {wallet.isConnected ? (
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 bg-green-900/30 border border-green-700 rounded-lg px-3 py-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-            <span className="text-sm text-green-300">
-              {formatAddress(wallet.address!)}
-            </span>
-            <span className="text-xs text-gray-400">|</span>
-            <span className="text-sm font-medium text-white">
-              {wallet.balance.toFixed(3)}{" "}
-              {wallet.network === "solana" ? "SOL" : "ETH"}
-            </span>
+          {/* Connected Wallet UI - Both Mobile & Desktop */}
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 bg-gradient-to-r from-emerald-800/80 to-green-700/60 border border-emerald-600/50 rounded-lg px-3 py-2 hover:from-emerald-700 hover:to-green-600/70 transition-all shadow-md">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse-glow"></div>
+              <Link href="/portfolio" className="flex items-center space-x-2">
+                <PieChart className="w-4 h-4 text-emerald-300" />
+                {!isMobile && (
+                  <>
+                    <span className="text-sm text-emerald-300 font-medium">
+                      {wallet.isDemo
+                        ? "Demo Wallet"
+                        : formatAddress(wallet.address!)}
+                    </span>
+                    <span className="text-xs text-gray-400">|</span>
+                    <span className="text-sm font-medium text-white">
+                      {wallet.balance.toFixed(3)}{" "}
+                      {wallet.network === "solana"
+                        ? "SOL"
+                        : wallet.network === "ethereum"
+                        ? "ETH"
+                        : "SOL"}
+                    </span>
+                  </>
+                )}
+                {isMobile && (
+                  <span className="text-sm text-emerald-300">
+                    {wallet.isDemo ? "Demo" : "Portfolio"}
+                  </span>
+                )}
+              </Link>
+              {!wallet.isDemo && !isMobile && (
+                <button
+                  onClick={openInExplorer}
+                  className="text-gray-300 hover:text-blue-400 transition-colors ml-1"
+                  title="View in Explorer"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
+            </div>
             <button
-              onClick={openInExplorer}
-              className="text-gray-400 hover:text-blue-400 transition-colors"
-              title="View in Explorer"
+              onClick={disconnectWallet}
+              className="p-2 text-gray-400 hover:text-red-400 transition-colors bg-gray-800/50 rounded-lg hover:bg-gray-700/50"
+              title="Disconnect Wallet"
             >
-              <ExternalLink className="w-3 h-3" />
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
-          <button
-            onClick={disconnectWallet}
-            className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-            title="Disconnect Wallet"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
         </div>
       ) : (
         <div className="relative">
-          {/* Generic connect button for mobile */}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowWalletOptions(!showWalletOptions)}
-              className="md:hidden flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+          {/* Connect Wallet Dropdown UI - Both Mobile & Desktop */}
+          <button
+            onClick={() => setShowWalletOptions(!showWalletOptions)}
+            className="flex items-center space-x-2 bg-gradient-connect hover:opacity-90 shadow-lg shadow-indigo-900/30 disabled:opacity-70 text-white px-4 py-2 rounded-lg transition-all border border-indigo-500/30"
+            disabled={isConnecting}
+          >
+            <Wallet className="w-4 h-4" />
+            <span className={`${isMobile ? "hidden sm:inline" : ""}`}>
+              {isConnecting ? "Connecting..." : "Connect Wallet"}
+            </span>
+            {isMobile && <span className="inline sm:hidden">Connect</span>}
+            <svg
+              className={`w-4 h-4 text-white transition-transform duration-200 ${
+                showWalletOptions ? "rotate-180" : ""
+              }`}
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <Wallet className="w-4 h-4" />
-              <span className="hidden sm:inline">Connect Wallet</span>
-              <span className="inline sm:hidden">Connect</span>
-            </button>
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
 
-            {/* Show these buttons on larger screens directly */}
-            <div className="hidden md:flex md:items-center md:space-x-2">
-              <button
-                onClick={connectSolanaWallet}
-                disabled={isConnecting}
-                className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                <Wallet className="w-4 h-4" />
-                <span>{isConnecting ? "Connecting..." : "Connect Solana"}</span>
-              </button>
-              <button
-                onClick={connectEthereumWallet}
-                disabled={isConnecting}
-                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                <Wallet className="w-4 h-4" />
-                <span>{isConnecting ? "Connecting..." : "Connect ETH"}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Dropdown for mobile */}
+          {/* Dropdown for both mobile and desktop */}
           {showWalletOptions && (
-            <div className="absolute right-0 top-12 z-50 w-48 md:hidden">
-              <div className="bg-gray-800 border border-gray-700 rounded-md shadow-lg p-2 flex flex-col space-y-2">
+            <div className="fixed md:absolute md:right-0 top-20 md:top-12 left-0 md:left-auto right-0 z-50 md:w-64 px-4 md:px-0">
+              <div className="bg-gray-800/95 backdrop-blur-sm border border-gray-700/80 rounded-md shadow-xl p-4 flex flex-col space-y-3 animate-dropdown-open origin-top-right">
                 <button
                   onClick={() => {
                     connectSolanaWallet();
                     setShowWalletOptions(false);
                   }}
                   disabled={isConnecting}
-                  className="flex items-center justify-center space-x-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+                  className="flex items-center justify-between space-x-2 bg-gradient-solana hover:opacity-90 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-all shadow-md border border-purple-500/30"
                 >
-                  <span>Connect Solana</span>
+                  <span className="font-medium">Connect Solana</span>
+                  <img
+                    src="https://solana.com/favicon-32x32.png"
+                    alt="Solana"
+                    className="w-5 h-5"
+                  />
                 </button>
                 <button
                   onClick={() => {
@@ -259,9 +379,25 @@ export default function WalletConnect() {
                     setShowWalletOptions(false);
                   }}
                   disabled={isConnecting}
-                  className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+                  className="flex items-center justify-between space-x-2 bg-gradient-ethereum hover:opacity-90 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-all shadow-md border border-blue-500/30"
                 >
-                  <span>Connect ETH</span>
+                  <span className="font-medium">Connect Ethereum</span>
+                  <img
+                    src="https://ethereum.org/favicon-32x32.png"
+                    alt="Ethereum"
+                    className="w-5 h-5"
+                  />
+                </button>
+                <button
+                  onClick={async () => {
+                    await connectDemoWallet();
+                    setShowWalletOptions(false);
+                  }}
+                  disabled={isConnecting}
+                  className="flex items-center justify-between space-x-2 bg-gradient-demo hover:opacity-90 disabled:opacity-50 text-white px-4 py-3 rounded-lg transition-all shadow-md border border-green-500/30"
+                >
+                  <span className="font-medium">Demo Wallet</span>
+                  <PieChart className="w-5 h-5" />
                 </button>
               </div>
             </div>

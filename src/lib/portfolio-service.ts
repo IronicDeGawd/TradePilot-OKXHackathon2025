@@ -40,7 +40,7 @@ class PortfolioService {
   async getTotalValue(address: string, chains?: string): Promise<{ totalValue: string }> {
     try {
       // Use our proxy API to avoid CORS issues
-      const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3002' : '';
+      const baseUrl = process.env.NODE_ENV === 'development' ? '' : '';
       let proxyUrl = `${baseUrl}/api/okx-proxy?endpoint=balance/total-value&address=${address}`;
       if (chains) proxyUrl += `&chains=${chains}`;
 
@@ -65,7 +65,7 @@ class PortfolioService {
     try {
       const chainString = chains.join(',');
       // Use our proxy API to avoid CORS issues
-      const baseUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3002' : '';
+      const baseUrl = process.env.NODE_ENV === 'development' ? '' : '';
       const proxyUrl = `${baseUrl}/api/okx-proxy?endpoint=balance/all-token-balances-by-address&address=${address}&chains=${chainString}`;
 
       const response = await fetch(proxyUrl, {

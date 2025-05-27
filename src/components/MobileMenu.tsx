@@ -29,14 +29,15 @@ export default function MobileMenu() {
     <div className="md:hidden">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="text-gray-300 hover:text-white p-2"
+        className="text-gray-300 hover:text-white p-2 bg-gray-800/70 rounded-lg hover:bg-gray-700 transition-all"
+        aria-label="Toggle Menu"
       >
         {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
 
       {isOpen && (
-        <div className="absolute top-16 left-0 right-0 bg-gray-900 border-b border-gray-800 z-50 shadow-lg">
-          <div className="px-4 py-3 space-y-2">
+        <div className="fixed top-[4.5rem] left-0 right-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700/80 z-50 shadow-2xl animate-fadeIn h-screen">
+          <div className="px-4 py-4 space-y-2 max-w-sm mx-auto">
             {navItems.map(({ href, icon: Icon, label }) => {
               const isActive = pathname === href;
               return (
@@ -44,13 +45,17 @@ export default function MobileMenu() {
                   key={href}
                   href={href}
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center px-4 py-3 rounded-md text-base font-medium transition-colors ${
+                  className={`flex items-center px-4 py-3 rounded-lg text-base font-medium transition-all ${
                     isActive
-                      ? "text-blue-400 bg-blue-400/10"
-                      : "text-gray-300 hover:text-white hover:bg-gray-800"
+                      ? "bg-blue-600/20 text-blue-400 border-blue-500/50 shadow-sm border"
+                      : "text-gray-300 hover:text-white hover:bg-gray-800/70"
                   }`}
                 >
-                  <Icon className="w-5 h-5 mr-3" />
+                  <Icon
+                    className={`w-5 h-5 mr-3 ${
+                      isActive ? "text-blue-400" : "text-gray-400"
+                    }`}
+                  />
                   {label}
                 </Link>
               );

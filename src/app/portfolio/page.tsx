@@ -21,6 +21,7 @@ export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [suggestions, setSuggestions] = useState<TradingSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -29,14 +30,24 @@ export default function PortfolioPage() {
 
   const loadPortfolioData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      // Use environment wallet address for API call
+      // Check if we're in demo mode by checking localStorage or URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const isDemo =
+        urlParams.get("demo") === "true" ||
+        localStorage.getItem("walletMode") === "demo";
+
+      // Use environment wallet address for API call or demo mode
       const walletAddress = process.env.NEXT_PUBLIC_SOLANA_WALLET_ADDRESS;
-      const response = await fetch(
-        `/api/portfolio${walletAddress ? `?address=${walletAddress}` : ""}`
-      );
+      const apiUrl = isDemo
+        ? "/api/portfolio?demo=true"
+        : `/api/portfolio${walletAddress ? `?address=${walletAddress}` : ""}`;
+
+      const response = await fetch(apiUrl);
       if (!response.ok) {
-        throw new Error("Failed to fetch portfolio data");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch portfolio data");
       }
 
       const portfolioData = await response.json();
@@ -47,6 +58,9 @@ export default function PortfolioPage() {
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Error loading portfolio:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to load portfolio data"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +117,10 @@ export default function PortfolioPage() {
     }).format(amount);
   };
 
-  const formatPercentage = (percentage: number) => {
+  const formatPercentage = (percentage: number | undefined) => {
+    if (percentage === undefined || percentage === null || isNaN(percentage)) {
+      return "0.00%";
+    }
     const sign = percentage >= 0 ? "+" : "";
     return `${sign}${percentage.toFixed(2)}%`;
   };
@@ -149,6 +166,56 @@ export default function PortfolioPage() {
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto mb-4" />
           <p className="text-gray-400">Loading portfolio data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen">
+        {/* Header */}
+        <header className="border-b border-dark-border bg-dark-card/50 backdrop-blur-sm">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Link href="/" className="text-gray-400 hover:text-white">
+                <ArrowLeft className="w-6 h-6" />
+              </Link>
+              <Wallet className="w-8 h-8 text-primary-500" />
+              <div>
+                <h1 className="text-xl font-bold">Portfolio</h1>
+                <p className="text-sm text-gray-400">
+                  Asset overview & suggestions
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={loadPortfolioData}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Retry</span>
+            </button>
+          </div>
+        </header>
+
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-white mb-2">
+                Failed to Load Portfolio
+              </h2>
+              <p className="text-gray-400 mb-4 max-w-md">{error}</p>
+              <button
+                onClick={loadPortfolioData}
+                className="btn-primary flex items-center space-x-2 mx-auto"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Try Again</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );

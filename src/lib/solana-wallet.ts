@@ -4,6 +4,7 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 export class SolanaWalletService {
   private connection: Connection;
+  private demoTokens: any[] = [];
 
   constructor() {
     // Use public RPC endpoint for read-only operations
@@ -11,6 +12,52 @@ export class SolanaWalletService {
       process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
       'confirmed'
     );
+  }
+
+  generateDemoWallet(): { address: string; balance: number; tokens: any[] } {
+    // Generate demo tokens with random values
+    const tokens = [
+      {
+        symbol: "SOL",
+        mint: "So11111111111111111111111111111111111111112",
+        amount: Math.random() * 10 + 1,
+        decimals: 9,
+        price: 180
+      },
+      {
+        symbol: "USDC",
+        mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        amount: Math.random() * 1000 + 100,
+        decimals: 6,
+        price: 1
+      },
+      {
+        symbol: "RAY",
+        mint: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+        amount: Math.random() * 500 + 50,
+        decimals: 6,
+        price: 0.5
+      },
+      {
+        symbol: "SRM",
+        mint: "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt",
+        amount: Math.random() * 200 + 20,
+        decimals: 6,
+        price: 0.3
+      },
+    ];
+
+    this.demoTokens = tokens;
+
+    return {
+      address: "Demo1234...5678",
+      balance: tokens[0].amount, // SOL balance
+      tokens
+    };
+  }
+
+  getDemoTokens() {
+    return this.demoTokens;
   }
 
   async connectPhantomWallet(): Promise<{ address: string; balance: number } | null> {

@@ -185,7 +185,10 @@ class OKXService {
         balance: parseFloat(balance.balance),
         value: parseFloat(balance.balance) * parseFloat(balance.tokenPrice),
         price: parseFloat(balance.tokenPrice),
-        change24h: 0 // Would need additional API call for 24h change
+        change24h: 0, // Would need additional API call for 24h change
+        amount: balance.balance,
+        decimals: 9, // Default to 9 for Solana tokens
+        usdValue: parseFloat(balance.balance) * parseFloat(balance.tokenPrice)
       }));
 
       console.log(`Portfolio fetched: $${totalValue.toFixed(2)} across ${tokens.length} tokens`);

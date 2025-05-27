@@ -11,6 +11,7 @@ export const CACHE_KEYS = {
 
 // Default cache expiry in minutes
 const DEFAULT_CACHE_EXPIRY = 15;
+const MAX_MOBILE_CACHE_SIZE = 500 * 1024; // 500KB max for mobile cache
 
 /**
  * Structure for cached data
@@ -34,6 +35,31 @@ export function saveToCache<T>(key: string, data: T, expiryMinutes = DEFAULT_CAC
       timestamp: Date.now(),
       expiry: expiryMinutes,
     };
+
+    // Check cache size for mobile devices with limited storage
+    const isMobile = typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(window.navigator.userAgent);
+
+    if (isMobile) {
+      // For mobile, we need to be more cautious with cache size
+      const stringifiedData = JSON.stringify(cacheItem);
+      if (stringifiedData.length > MAX_MOBILE_CACHE_SIZE) {
+        // If data is too large, only store a subset or essential data
+        console.warn(`Cache data for ${key} exceeds mobile size limit. Storing limited data.`);
+
+        // For arbitrage data specifically, limit the number of items
+        if (key === CACHE_KEYS.ARBITRAGE_DATA && Array.isArray(data)) {
+          const limitedData = data.slice(0, 10); // Store only top 10 items
+          const smallerCacheItem: CachedData<any> = {
+            data: limitedData,
+            timestamp: Date.now(),
+            expiry: expiryMinutes,
+          };
+          localStorage.setItem(key, JSON.stringify(smallerCacheItem));
+          return;
+        }
+      }
+    }
+
     localStorage.setItem(key, JSON.stringify(cacheItem));
   } catch (error) {
     console.error('Error saving to cache:', error);

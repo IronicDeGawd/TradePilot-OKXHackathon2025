@@ -1,0 +1,46 @@
+{
+  "address": "AoBhS4KqTaHjnvXqRc6YDSmH7xw8yNkGNvCbXzCcXvRz",
+  "balance": 2847.35,
+  "tokens": [
+    {
+      "symbol": "SOL",
+      "mint": "So11111111111111111111111111111111111111112",
+      "amount": 8.45,
+      "decimals": 9,
+      "price": 180.50,
+      "change24h": 3.25
+    },
+    {
+      "symbol": "USDC",
+      "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "amount": 1250.75,
+      "decimals": 6,
+      "price": 1.00,
+      "change24h": 0.02
+    },
+    {
+      "symbol": "RAY",
+      "mint": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "amount": 387.25,
+      "decimals": 6,
+      "price": 0.52,
+      "change24h": -2.15
+    },
+    {
+      "symbol": "SRM",
+      "mint": "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt",
+      "amount": 156.80,
+      "decimals": 6,
+      "price": 0.31,
+      "change24h": 4.75
+    },
+    {
+      "symbol": "ORCA",
+      "mint": "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",
+      "amount": 245.60,
+      "decimals": 6,
+      "price": 0.65,
+      "change24h": -1.85
+    }
+  ]
+}

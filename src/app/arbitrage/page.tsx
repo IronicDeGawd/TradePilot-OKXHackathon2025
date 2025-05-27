@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -17,6 +17,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import { okxService } from "@/lib/okx";
 import { notificationService } from "@/lib/notifications";
 import { CACHE_KEYS, getFromCache, saveToCache } from "@/lib/cache-utils";
+import { isMobileDevice, getOptimalRenderCount } from "@/lib/device-utils";
 import type { ArbitrageOpportunity } from "@/types";
 
 export default function ArbitragePage() {
@@ -30,10 +31,16 @@ export default function ArbitragePage() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
-    // First try to load from cache
+    // First try to load from cache for immediate display
     loadCachedData();
-    // Then fetch fresh data
-    loadArbitrageData();
+
+    // Only fetch fresh data if cache is stale or empty
+    const cachedArbitrage = getFromCache<ArbitrageOpportunity[]>(
+      CACHE_KEYS.ARBITRAGE_DATA
+    );
+    if (!cachedArbitrage || cachedArbitrage.isStale) {
+      loadArbitrageData();
+    }
 
     // Set the last updated time on client-side only
     if (typeof window !== "undefined") {
@@ -56,10 +63,10 @@ export default function ArbitragePage() {
       try {
         const cachedItem = localStorage.getItem(CACHE_KEYS.ARBITRAGE_DATA);
         if (cachedItem) {
-          const { timestamp } = JSON.parse(cachedItem);
-          if (timestamp) {
+          const parsedItem = JSON.parse(cachedItem);
+          if (parsedItem && parsedItem.timestamp) {
             const date = new Date();
-            date.setTime(timestamp);
+            date.setTime(parsedItem.timestamp);
             setLastUpdated(date);
           }
         }
@@ -76,7 +83,8 @@ export default function ArbitragePage() {
     }
 
     try {
-      const response = await fetch("/api/arbitrage");
+      // Add a cache-busting parameter to avoid any browser caching issues
+      const response = await fetch(`/api/arbitrage?t=${Date.now()}`);
       if (!response.ok) {
         throw new Error("Failed to fetch arbitrage data");
       }
@@ -155,8 +163,8 @@ export default function ArbitragePage() {
   };
 
   // Filter out duplicate tokens by symbol and keep the one with higher profit percent
-  const uniqueOpportunities = opportunities.reduce(
-    (unique: ArbitrageOpportunity[], opp) => {
+  const uniqueOpportunities = useMemo(() => {
+    return opportunities.reduce((unique: ArbitrageOpportunity[], opp) => {
       const existingIndex = unique.findIndex(
         (item) => item.symbol === opp.symbol
       );
@@ -169,23 +177,158 @@ export default function ArbitragePage() {
         unique[existingIndex] = opp;
       }
       return unique;
-    },
-    []
-  );
+    }, []);
+  }, [opportunities]);
 
-  const sortedOpportunities = uniqueOpportunities.sort(
-    (a, b) => Math.abs(b.profitPercent) - Math.abs(a.profitPercent)
-  );
+  const sortedOpportunities = useMemo(() => {
+    return [...uniqueOpportunities].sort(
+      (a, b) => Math.abs(b.profitPercent) - Math.abs(a.profitPercent)
+    );
+  }, [uniqueOpportunities]);
 
-  const profitableOpportunities = uniqueOpportunities.filter(
-    (op) => op.profitPercent > 0.1
-  );
-  const totalVolume = opportunities.reduce((sum, op) => sum + op.volume24h, 0);
+  const profitableOpportunities = useMemo(() => {
+    return uniqueOpportunities.filter((op) => op.profitPercent > 0.1);
+  }, [uniqueOpportunities]);
+
+  const totalVolume = useMemo(() => {
+    return opportunities.reduce((sum, op) => sum + op.volume24h, 0);
+  }, [opportunities]);
 
   const enableNotifications = async () => {
     const granted = await notificationService.requestPermission();
     setNotificationsEnabled(granted);
   };
+
+  // Optimize Best Spread calculation with useMemo
+  const bestSpread = useMemo(() => {
+    if (opportunities.length === 0) return "0%";
+
+    // Use a faster method than spread operator when possible
+    let max = -Infinity;
+    for (let i = 0; i < opportunities.length; i++) {
+      if (opportunities[i].profitPercent > max) {
+        max = opportunities[i].profitPercent;
+      }
+    }
+    return `${max.toFixed(2)}%`;
+  }, [opportunities]);
+
+  // Limit the number of displayed opportunities based on device performance
+  const renderOpportunityCards = useMemo(() => {
+    if (isLoading && opportunities.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
+          <p className="text-gray-400">Loading arbitrage opportunities...</p>
+        </div>
+      );
+    }
+
+    if (opportunities.length === 0 && !isLoading) {
+      return (
+        <div className="text-center py-8">
+          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-gray-400">
+            No arbitrage opportunities found at the moment.
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Try refreshing or check back later.
+          </p>
+        </div>
+      );
+    }
+
+    // Limit the number of items rendered on mobile devices
+    const isMobile = isMobileDevice();
+    const optimizedOpportunities = isMobile
+      ? sortedOpportunities.slice(
+          0,
+          getOptimalRenderCount(sortedOpportunities.length)
+        )
+      : sortedOpportunities;
+
+    return (
+      <div
+        className={`space-y-4 ${
+          isRefreshing ? "opacity-80 transition-opacity" : ""
+        }`}
+      >
+        {optimizedOpportunities.map((opportunity, index) => (
+          <div
+            key={index}
+            className="p-4 bg-dark-bg rounded-lg border border-dark-border hover:border-primary-500/50 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-primary-500/20 rounded-full flex items-center justify-center">
+                  <span className="font-bold text-primary-400">
+                    {opportunity.symbol?.charAt(0) || "?"}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    {opportunity.symbol || "Unknown"}
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    24h Volume: {formatVolume(opportunity.volume24h)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-8 text-center">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">DEX Price</p>
+                  <p className="font-semibold">
+                    {formatCurrency(opportunity.dexPrice)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">CEX Price</p>
+                  <p className="font-semibold">
+                    {formatCurrency(opportunity.cexPrice)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Spread</p>
+                  <div
+                    className={`flex items-center justify-center space-x-1 ${getSpreadColor(
+                      opportunity.profitPercent
+                    )}`}
+                  >
+                    {getSpreadIcon(opportunity.profitPercent)}
+                    <span className="font-bold">
+                      {opportunity.profitPercent >= 0 ? "+" : ""}
+                      {opportunity.profitPercent.toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {opportunity.profitPercent > 0.5 && (
+                  <div className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">
+                    PROFITABLE
+                  </div>
+                )}
+                <Link href="/chat" className="btn-secondary text-sm">
+                  Analyze
+                </Link>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Show a message if we limited the results on mobile */}
+        {isMobile &&
+          sortedOpportunities.length > optimizedOpportunities.length && (
+            <div className="text-center text-xs text-gray-500 mt-2">
+              Showing top {optimizedOpportunities.length} of{" "}
+              {sortedOpportunities.length} opportunities for better performance.
+            </div>
+          )}
+      </div>
+    );
+  }, [sortedOpportunities, isLoading, isRefreshing, opportunities.length]);
 
   return (
     <div className="min-h-screen">
@@ -235,8 +378,8 @@ export default function ArbitragePage() {
 
       <div className="container mx-auto px-4 py-8">
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="card">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+          <div className="card p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Total Opportunities</p>
@@ -248,7 +391,7 @@ export default function ArbitragePage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Profitable</p>
@@ -260,7 +403,7 @@ export default function ArbitragePage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">24h Volume</p>
@@ -272,16 +415,12 @@ export default function ArbitragePage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Best Spread</p>
                 <p className="text-2xl font-bold text-green-400">
-                  {opportunities.length > 0
-                    ? `${Math.max(
-                        ...opportunities.map((op) => op.profitPercent)
-                      ).toFixed(2)}%`
-                    : "0%"}
+                  {bestSpread}
                 </p>
               </div>
               <ArrowUpDown className="w-8 h-8 text-purple-400" />
@@ -308,97 +447,7 @@ export default function ArbitragePage() {
             </div>
           </div>
 
-          {isLoading && opportunities.length === 0 ? (
-            <div className="text-center py-8">
-              <LoadingSpinner size="lg" className="mx-auto mb-4" />
-              <p className="text-gray-400">
-                Loading arbitrage opportunities...
-              </p>
-            </div>
-          ) : (
-            <div
-              className={`space-y-4 ${
-                isRefreshing ? "opacity-80 transition-opacity" : ""
-              }`}
-            >
-              {sortedOpportunities.map((opportunity, index) => (
-                <div
-                  key={index}
-                  className="p-4 bg-dark-bg rounded-lg border border-dark-border hover:border-primary-500/50 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-primary-500/20 rounded-full flex items-center justify-center">
-                        <span className="font-bold text-primary-400">
-                          {opportunity.symbol?.charAt(0) || "?"}
-                        </span>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold">
-                          {opportunity.symbol || "Unknown"}
-                        </h3>
-                        <p className="text-sm text-gray-400">
-                          24h Volume: {formatVolume(opportunity.volume24h)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-8 text-center">
-                      <div>
-                        <p className="text-xs text-gray-400 mb-1">DEX Price</p>
-                        <p className="font-semibold">
-                          {formatCurrency(opportunity.dexPrice)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400 mb-1">CEX Price</p>
-                        <p className="font-semibold">
-                          {formatCurrency(opportunity.cexPrice)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400 mb-1">Spread</p>
-                        <div
-                          className={`flex items-center justify-center space-x-1 ${getSpreadColor(
-                            opportunity.profitPercent
-                          )}`}
-                        >
-                          {getSpreadIcon(opportunity.profitPercent)}
-                          <span className="font-bold">
-                            {opportunity.profitPercent >= 0 ? "+" : ""}
-                            {opportunity.profitPercent.toFixed(2)}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      {opportunity.profitPercent > 0.5 && (
-                        <div className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-xs">
-                          PROFITABLE
-                        </div>
-                      )}
-                      <Link href="/chat" className="btn-secondary text-sm">
-                        Analyze
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {opportunities.length === 0 && !isLoading && (
-                <div className="text-center py-8">
-                  <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                  <p className="text-gray-400">
-                    No arbitrage opportunities found at the moment.
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Try refreshing or check back later.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+          {renderOpportunityCards}
         </div>
 
         {/* Info Section */}

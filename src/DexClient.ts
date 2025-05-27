@@ -334,14 +334,16 @@ export class TradePilotClient {
           isConnected: true,
           address: connection.address,
           balance: connection.balance,
-          network: 'solana'
+          network: 'solana',
+          isDemo: false
         };
       }
       return {
         isConnected: false,
         address: null,
         balance: 0,
-        network: null
+        network: null,
+        isDemo: false
       };
     } catch (error) {
       console.error('Error checking wallet status:', error);
@@ -350,9 +352,25 @@ export class TradePilotClient {
         address: null,
         balance: 0,
         network: null,
+        isDemo: false,
         error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
+  }
+
+  /**
+   * Get demo wallet for testing
+   */
+  getDemoWallet() {
+    const demoWallet = solanaWallet.generateDemoWallet();
+    return {
+      isConnected: true,
+      address: demoWallet.address,
+      balance: demoWallet.balance,
+      network: 'demo',
+      isDemo: true,
+      tokens: demoWallet.tokens
+    };
   }
 }
 
