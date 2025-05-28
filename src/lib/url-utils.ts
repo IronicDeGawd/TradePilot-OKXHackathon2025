@@ -5,6 +5,12 @@ export function getBaseUrl(): string {
     return window.location.origin;
   }
 
+  // During build time, don't try to construct localhost URLs
+  if (process.env.NODE_ENV === 'production' && !process.env.VERCEL_URL && !process.env.NEXT_PUBLIC_BASE_URL) {
+    // Return a placeholder that won't be used during build
+    return '';
+  }
+
   // Check for Vercel environment
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
@@ -26,11 +32,20 @@ export function constructApiUrl(path: string): string {
     return path;
   }
 
+  // For server-side requests to internal APIs, we need to construct the full URL
+  const baseUrl = getBaseUrl();
+
+  // If we don't have a base URL (e.g., during build), return the path as-is
+  // The caller should handle this case appropriately
+  if (!baseUrl) {
+    return path;
+  }
+
   // If it's a relative URL, make it absolute
   if (path.startsWith('/')) {
-    return `${getBaseUrl()}${path}`;
+    return `${baseUrl}${path}`;
   }
 
   // If it doesn't start with /, add it
-  return `${getBaseUrl()}/${path}`;
+  return `${baseUrl}/${path}`;
 }

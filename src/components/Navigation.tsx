@@ -8,14 +8,17 @@ import {
   TrendingUp,
   BarChart3,
   Home,
+  ArrowLeftRight,
 } from "lucide-react";
 import WalletConnect from "./WalletConnect";
 import MobileMenu from "./MobileMenu";
+import ChainSelector from "./ChainSelector";
 
 const navItems = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/chat", icon: MessageSquare, label: "AI Chat" },
   { href: "/portfolio", icon: Wallet, label: "Portfolio" },
+  { href: "/swap", icon: ArrowLeftRight, label: "Swap" },
   { href: "/arbitrage", icon: BarChart3, label: "Arbitrage" },
   { href: "/trending", icon: TrendingUp, label: "Trending" },
 ];
@@ -72,13 +75,15 @@ export default function Navigation() {
                 );
               })}
             </div>
-            <div className="pl-4 border-l border-gray-700/50">
+            <div className="flex items-center space-x-4 pl-4 border-l border-gray-700/50">
+              <ChainSelector />
               <WalletConnect />
             </div>
           </div>
 
           {/* Mobile Navigation */}
           <div className="md:hidden flex items-center space-x-3">
+            <ChainSelector />
             <WalletConnect />
             <MobileMenu />
           </div>

@@ -75,3 +75,77 @@ export interface TradingSuggestion {
   expectedReturn?: number;
   riskLevel: 'low' | 'medium' | 'high';
 }
+
+// New API Response Types for OKX DEX Market API
+export interface ApiChainInfo {
+  chainIndex: string;
+  chainName: string;
+  chainSymbol: string;
+}
+
+export interface ApiTokenInfo {
+  decimals: string;
+  tokenContractAddress: string;
+  tokenLogoUrl: string;
+  tokenName: string;
+  tokenSymbol: string;
+}
+
+export interface ApiTokenPriceInfo {
+  chainIndex: string;
+  tokenContractAddress: string;
+  time: string;
+  price: string;
+  marketCap?: string;
+  priceChange5M?: string;
+  priceChange1H?: string;
+  priceChange4H?: string;
+  priceChange24H?: string;
+  volume5M?: string;
+  volume1H?: string;
+  volume4H?: string;
+  volume24H?: string;
+}
+
+// Extended types for internal use
+export interface ChainData {
+  chainIndex: string;
+  name: string;
+  symbol: string;
+}
+
+export interface ExtendedTokenData {
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  logoUrl?: string;
+  chainIndex: string;
+}
+
+export interface TokenPriceData {
+  address: string;
+  chainIndex: string;
+  price: number;
+  priceChange5M?: number;
+  priceChange1H?: number;
+  priceChange4H?: number;
+  priceChange24H?: number;
+  volume5M?: number;
+  volume1H?: number;
+  volume4H?: number;
+  volume24H?: number;
+  marketCap?: number;
+  timestamp: number;
+}
+
+export interface Candlestick {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+// Portfolio Types

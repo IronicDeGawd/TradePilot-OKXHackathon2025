@@ -26,6 +26,8 @@ const TOKENS = {
   RAY: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
   BONK: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
   USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  USDT: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+  WIF: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
 };
 
 // Helper functions
@@ -56,31 +58,36 @@ function delay(ms) {
 
 // Get DEX prices from OKX
 async function getDEXPrices(requests) {
-  const requestPath = "/api/v5/dex/market/price";
+  const requestPath = "/api/v5/dex/market/price-info";
   const body = JSON.stringify(requests);
   const headers = getHeaders("POST", requestPath, body);
 
-  const response = await fetch(`${config.baseUrl}${requestPath}`, {
-    method: "POST",
-    headers,
-    body,
-  });
-
-  const data = await response.json();
-
-  // Handle rate limiting
-  if (data.code === "50011" || data.msg === "Too Many Requests") {
-    console.log("⏱️  DEX API rate limit hit, waiting 2 seconds...");
-    await delay(2000);
-    const retryResponse = await fetch(`${config.baseUrl}${requestPath}`, {
+  try {
+    const response = await fetch(`${config.baseUrl}${requestPath}`, {
       method: "POST",
-      headers: getHeaders("POST", requestPath, body),
+      headers,
       body,
     });
-    return await retryResponse.json();
-  }
 
-  return data;
+    const data = await response.json();
+
+    // Handle rate limiting
+    if (data.code === "50011" || data.msg === "Too Many Requests") {
+      console.log("⏱️  DEX API rate limit hit, waiting 2 seconds...");
+      await delay(2000);
+      const retryResponse = await fetch(`${config.baseUrl}${requestPath}`, {
+        method: "POST",
+        headers: getHeaders("POST", requestPath, body),
+        body,
+      });
+      return await retryResponse.json();
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in getDEXPrices:", error.message);
+    return { code: "1", msg: error.message, data: [] };
+  }
 }
 
 // Get CEX prices from OKX (public API, no auth needed)
@@ -100,7 +107,7 @@ async function getCEXPrices() {
 
 // Find arbitrage opportunities by comparing DEX and CEX prices
 async function findArbitrageOpportunities(
-  tokens = [TOKENS.SOL, TOKENS.JUP],
+  tokens = [TOKENS.SOL, TOKENS.JUP, TOKENS.RAY],
   minProfitPercent = 0.5
 ) {
   try {
@@ -108,12 +115,10 @@ async function findArbitrageOpportunities(
       `🔍 Analyzing ${tokens.length} tokens for arbitrage opportunities...`
     );
 
-    // Get DEX prices
+    // Get DEX prices - using correct price-info format
     const dexRequests = tokens.map((token) => ({
       chainIndex: CHAINS.SOLANA,
-      toTokenAddress: token,
-      fromTokenAddress: TOKENS.USDC,
-      fromTokenAmount: "1000000", // 1 USDC with 6 decimals
+      tokenContractAddress: token,
     }));
 
     const dexData = await getDEXPrices(dexRequests);
@@ -137,12 +142,12 @@ async function findArbitrageOpportunities(
     // Process each token
     for (let i = 0; i < tokens.length; i++) {
       const tokenAddress = tokens[i];
-      const dexQuote = dexData.data[i];
+      const dexPriceInfo = dexData.data && dexData.data[i];
 
-      if (!dexQuote || !dexQuote.toTokenAmount) continue;
+      if (!dexPriceInfo || !dexPriceInfo.price) continue;
 
-      // Calculate DEX price (tokens received per 1 USDC)
-      const dexPrice = parseFloat(dexQuote.toTokenAmount) / 1000000; // Adjust for USDC decimals
+      // Get DEX price directly from price-info
+      const dexPricePerToken = parseFloat(dexPriceInfo.price);
 
       // Find corresponding CEX ticker
       const tokenSymbol = Object.keys(TOKENS).find(
@@ -161,20 +166,23 @@ async function findArbitrageOpportunities(
       const cexPrice = parseFloat(cexTicker.last);
 
       // Calculate arbitrage opportunity
-      const priceDiff = Math.abs(dexPrice - cexPrice);
-      const profitPercent = (priceDiff / Math.min(dexPrice, cexPrice)) * 100;
+      const priceDiff = Math.abs(dexPricePerToken - cexPrice);
+      const profitPercent =
+        (priceDiff / Math.min(dexPricePerToken, cexPrice)) * 100;
 
       if (profitPercent >= minProfitPercent) {
         opportunities.push({
           symbol: tokenSymbol,
           tokenAddress,
-          dexPrice,
+          dexPrice: dexPricePerToken,
           cexPrice,
           priceDiff,
           profitPercent,
           volume24h: parseFloat(cexTicker.vol24h || 0),
           direction:
-            dexPrice > cexPrice ? "BUY_CEX_SELL_DEX" : "BUY_DEX_SELL_CEX",
+            dexPricePerToken > cexPrice
+              ? "BUY_CEX_SELL_DEX"
+              : "BUY_DEX_SELL_CEX",
           timestamp: new Date().toISOString(),
         });
       }
@@ -244,25 +252,23 @@ async function testArbitrageWithFilters() {
     console.log(`\n   Testing DEX prices...`);
 
     // Test DEX prices for a few tokens
-    const testTokens = [TOKENS.WETH, TOKENS.USDT, TOKENS.WBTC];
+    const testTokens = [TOKENS.SOL, TOKENS.JUP, TOKENS.RAY];
     const dexRequests = testTokens.map((tokenAddress) => ({
-      fromTokenAddress: TOKENS.USDC, // USDC
-      toTokenAddress: tokenAddress,
-      amount: "1000000", // 1 USDC (6 decimals)
-      slippage: 0.01,
+      chainIndex: CHAINS.SOLANA,
+      tokenContractAddress: tokenAddress,
     }));
 
     const dexData = await getDEXPrices(dexRequests);
 
     if (dexData.code === "0") {
       console.log(`   ✅ DEX prices fetched successfully`);
-      dexData.data.forEach((quote, idx) => {
-        if (quote && quote.toTokenAmount) {
+      dexData.data.forEach((priceInfo, idx) => {
+        if (priceInfo && priceInfo.price) {
           const tokenSymbol = Object.keys(TOKENS).find(
             (key) => TOKENS[key] === testTokens[idx]
           );
           console.log(
-            `   - ${tokenSymbol}: ${quote.toTokenAmount} tokens per 1 USDC`
+            `   - ${tokenSymbol}: $${parseFloat(priceInfo.price).toFixed(4)}`
           );
         }
       });

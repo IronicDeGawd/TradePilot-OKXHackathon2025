@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { okxService } from "@/lib/okx";
 import { CACHE_KEYS, getFromCache, saveToCache } from "@/lib/cache-utils";
+import { getArbitrageStats, getMarketStatistics } from "@/lib/arbitrage-utils";
 import type { TrendingToken } from "@/types";
 import type { ArbitrageOpportunity } from "@/lib/okx";
 
@@ -119,29 +120,22 @@ export default function MarketOverview() {
       setTopTrending(trending.slice(0, 3));
       setTopArbitrage(arbitrage.slice(0, 3));
 
-      // Calculate market stats
+      // Calculate market stats using centralized market statistics utility
       const totalVolume = trending.reduce(
         (sum, token) => sum + token.volume24h,
         0
       );
-      const avgSpread =
-        arbitrage.length > 0
-          ? arbitrage.reduce(
-              (sum, opp) => sum + Math.abs(opp.profitPercent),
-              0
-            ) / arbitrage.length
-          : 0;
+
+      const marketStats = getMarketStatistics(arbitrage);
 
       const newStats = {
         totalVolume24h: totalVolume,
-        totalArbitrageOpportunities: arbitrage.filter(
-          (opp) => Math.abs(opp.profitPercent) > 0.5
-        ).length,
+        totalArbitrageOpportunities: marketStats.counts.marketOverview,
         activeTraders: trending.reduce(
           (sum, token) => sum + token.socialMentions,
           0
         ), // Use social mentions as proxy for active traders
-        avgSpread,
+        avgSpread: marketStats.avgSpread,
       };
 
       // Save stats to cache

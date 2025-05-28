@@ -1,3 +1,4 @@
+// filepath: /mnt/project-files/okx-dex-project/src/config/tokens.ts
 // Centralized Token Configuration for TradePilot AI
 // This file contains all supported tokens with their metadata
 
@@ -123,6 +124,102 @@ export const SOLANA_TOKENS: Record<string, TokenMetadata> = {
   }
 } as const;
 
+// Ethereum token definitions for multi-chain support
+export const ETHEREUM_TOKENS: Record<string, TokenMetadata> = {
+  ETH: {
+    symbol: 'ETH',
+    address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    decimals: 18,
+    name: 'Ethereum',
+    chainIndex: '1',
+    category: 'native',
+    isPopular: true
+  },
+  USDC: {
+    symbol: 'USDC',
+    address: '0xA0b86a33E6441b6C862F7F5A7B4B6B5A5F8D7a7D',
+    decimals: 6,
+    name: 'USD Coin',
+    chainIndex: '1',
+    category: 'stablecoin',
+    isPopular: true
+  },
+  USDT: {
+    symbol: 'USDT',
+    address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+    decimals: 6,
+    name: 'Tether USD',
+    chainIndex: '1',
+    category: 'stablecoin',
+    isPopular: true
+  },
+  WBTC: {
+    symbol: 'WBTC',
+    address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
+    decimals: 8,
+    name: 'Wrapped Bitcoin',
+    chainIndex: '1',
+    category: 'native',
+    isPopular: true
+  },
+  UNI: {
+    symbol: 'UNI',
+    address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
+    decimals: 18,
+    name: 'Uniswap',
+    chainIndex: '1',
+    category: 'defi',
+    isPopular: true
+  }
+} as const;
+
+// BSC token definitions for multi-chain support
+export const BSC_TOKENS: Record<string, TokenMetadata> = {
+  BNB: {
+    symbol: 'BNB',
+    address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+    decimals: 18,
+    name: 'BNB',
+    chainIndex: '56',
+    category: 'native',
+    isPopular: true
+  },
+  USDT: {
+    symbol: 'USDT',
+    address: '0x55d398326f99059fF775485246999027B3197955',
+    decimals: 18,
+    name: 'Tether USD',
+    chainIndex: '56',
+    category: 'stablecoin',
+    isPopular: true
+  },
+  USDC: {
+    symbol: 'USDC',
+    address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    decimals: 18,
+    name: 'USD Coin',
+    chainIndex: '56',
+    category: 'stablecoin',
+    isPopular: true
+  },
+  CAKE: {
+    symbol: 'CAKE',
+    address: '0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82',
+    decimals: 18,
+    name: 'PancakeSwap Token',
+    chainIndex: '56',
+    category: 'defi',
+    isPopular: true
+  }
+} as const;
+
+// Multi-chain token registry
+export const ALL_CHAIN_TOKENS = {
+  '501': SOLANA_TOKENS,
+  '1': ETHEREUM_TOKENS,
+  '56': BSC_TOKENS
+} as const;
+
 // Legacy TOKENS export for backward compatibility
 export const TOKENS = Object.fromEntries(
   Object.entries(SOLANA_TOKENS).map(([key, token]) => [key, token.address])
@@ -143,70 +240,123 @@ export const CHAIN_INDICES = {
 } as const;
 
 // Helper functions to work with tokens
-export const getTokenBySymbol = (symbol: string): TokenMetadata | undefined => {
+export const getTokenBySymbol = (symbol: string, chainIndex?: string): TokenMetadata | undefined => {
+  if (chainIndex) {
+    const chainTokens = ALL_CHAIN_TOKENS[chainIndex as keyof typeof ALL_CHAIN_TOKENS];
+    return chainTokens?.[symbol as keyof typeof chainTokens];
+  }
+
   return SOLANA_TOKENS[symbol as keyof typeof SOLANA_TOKENS];
 };
 
-export const getTokenByAddress = (address: string): TokenMetadata | undefined => {
-  return Object.values(SOLANA_TOKENS).find(token => token.address === address);
+export const getTokenByAddress = (address: string, chainIndex?: string): TokenMetadata | undefined => {
+  if (chainIndex) {
+    const chainTokens = ALL_CHAIN_TOKENS[chainIndex as keyof typeof ALL_CHAIN_TOKENS];
+    return chainTokens ? Object.values(chainTokens).find(token => token.address === address) : undefined;
+  }
+
+  for (const chainTokens of Object.values(ALL_CHAIN_TOKENS)) {
+    const token = Object.values(chainTokens).find(token => token.address === address);
+    if (token) return token;
+  }
+  return undefined;
 };
 
-export const getAllTokenSymbols = (): string[] => {
+export const getAllTokenSymbols = (chainIndex?: string): string[] => {
+  if (chainIndex) {
+    const chainTokens = ALL_CHAIN_TOKENS[chainIndex as keyof typeof ALL_CHAIN_TOKENS];
+    return chainTokens ? Object.keys(chainTokens) : [];
+  }
+
   return Object.keys(SOLANA_TOKENS);
 };
 
-export const getAllTokenAddresses = (): string[] => {
+export const getAllTokenAddresses = (chainIndex?: string): string[] => {
+  if (chainIndex) {
+    const chainTokens = ALL_CHAIN_TOKENS[chainIndex as keyof typeof ALL_CHAIN_TOKENS];
+    return chainTokens ? Object.values(chainTokens).map(token => token.address) : [];
+  }
+
   return Object.values(SOLANA_TOKENS).map(token => token.address);
 };
 
-export const getPopularTokens = (): TokenMetadata[] => {
+export const getPopularTokens = (chainIndex?: string): TokenMetadata[] => {
+  if (chainIndex) {
+    const chainTokens = ALL_CHAIN_TOKENS[chainIndex as keyof typeof ALL_CHAIN_TOKENS];
+    return chainTokens ? Object.values(chainTokens).filter(token => token.isPopular) : [];
+  }
+
   return Object.values(SOLANA_TOKENS).filter(token => token.isPopular);
 };
 
-export const getTokensByCategory = (category: TokenMetadata['category']): TokenMetadata[] => {
+export const getTokensByCategory = (category: TokenMetadata['category'], chainIndex?: string): TokenMetadata[] => {
+  if (chainIndex) {
+    const chainTokens = ALL_CHAIN_TOKENS[chainIndex as keyof typeof ALL_CHAIN_TOKENS];
+    return chainTokens ? Object.values(chainTokens).filter(token => token.category === category) : [];
+  }
+
   return Object.values(SOLANA_TOKENS).filter(token => token.category === category);
 };
 
+export const getSupportedChains = (): string[] => {
+  return Object.keys(ALL_CHAIN_TOKENS);
+};
+
+export const getTokensForChain = (chainIndex: string): TokenMetadata[] => {
+  const chainTokens = ALL_CHAIN_TOKENS[chainIndex as keyof typeof ALL_CHAIN_TOKENS];
+  return chainTokens ? Object.values(chainTokens) : [];
+};
+
 // Token lists for different services
-export const TRENDING_TOKENS = getPopularTokens().map(token => ({
+export const TRENDING_TOKENS = getPopularTokens('501').map(token => ({
   symbol: token.symbol,
-  address: token.address
+  address: token.address,
+  chainIndex: token.chainIndex
 }));
 
-export const CEX_TRADING_PAIRS = getAllTokenSymbols();
+export const MULTI_CHAIN_TRENDING_TOKENS = Object.entries(ALL_CHAIN_TOKENS).flatMap(([chainIndex, tokens]) =>
+  Object.values(tokens)
+    .filter(token => token.isPopular)
+    .map(token => ({
+      symbol: token.symbol,
+      address: token.address,
+      chainIndex: token.chainIndex
+    }))
+);
 
-export const DEX_SUPPORTED_TOKENS = getAllTokenSymbols();
+export const CEX_TRADING_PAIRS = getAllTokenSymbols('501');
+export const DEX_SUPPORTED_TOKENS = getAllTokenSymbols('501');
 
 // Social multipliers for trending analysis
 export const SOCIAL_MULTIPLIERS: Record<string, number> = {
-  SOL: 1.2,      // High social activity
-  JUP: 1.1,      // Aggregator with good following
-  RAY: 1.0,      // Established DeFi
-  ORCA: 1.0,     // Established DeFi
-  JTO: 1.0,      // Jito network
-  BONK: 1.4,     // Meme coin = high social activity
-  WIF: 1.4,      // Another meme with high social presence
-  PYTH: 1.1,     // Oracle network
-  MNGO: 1.0,     // Established but lower activity
-  USDC: 0.7,     // Stablecoin = lower social activity
-  USDT: 0.7,     // Stablecoin = lower social activity
-  JITO: 1.1      // Liquid staking token
+  SOL: 1.2,
+  JUP: 1.1,
+  RAY: 1.0,
+  ORCA: 1.0,
+  JTO: 1.0,
+  BONK: 1.4,
+  WIF: 1.4,
+  PYTH: 1.1,
+  MNGO: 1.0,
+  USDC: 0.7,
+  USDT: 0.7,
+  JITO: 1.1
 };
 
 // Market cap estimates for trending calculations
 export const MARKET_CAP_ESTIMATES: Record<string, number> = {
-  SOL: 66000000000,    // ~$66B
-  USDC: 32000000000,   // ~$32B
-  USDT: 120000000000,  // ~$120B
-  JUP: 2500000000,     // ~$2.5B
-  RAY: 800000000,      // ~$800M
-  ORCA: 300000000,     // ~$300M
-  JTO: 500000000,      // ~$500M
-  BONK: 1800000000,    // ~$1.8B
-  WIF: 3200000000,     // ~$3.2B
-  PYTH: 1500000000,    // ~$1.5B
-  MNGO: 150000000,     // ~$150M
-  JITO: 400000000      // ~$400M
+  SOL: 66000000000,
+  USDC: 32000000000,
+  USDT: 120000000000,
+  JUP: 2500000000,
+  RAY: 800000000,
+  ORCA: 300000000,
+  JTO: 500000000,
+  BONK: 1800000000,
+  WIF: 3200000000,
+  PYTH: 1500000000,
+  MNGO: 150000000,
+  JITO: 400000000
 };
 
 export default SOLANA_TOKENS;

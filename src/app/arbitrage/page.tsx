@@ -14,13 +14,34 @@ import {
   AlertCircle,
 } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useChainService } from "@/lib/use-chain-service";
 import { okxService } from "@/lib/okx";
 import { notificationService } from "@/lib/notifications";
 import { CACHE_KEYS, getFromCache, saveToCache } from "@/lib/cache-utils";
 import { isMobileDevice, getOptimalRenderCount } from "@/lib/device-utils";
+import {
+  filterUniqueOpportunities,
+  sortByProfitPercent,
+  filterProfitableOpportunities,
+  isProfitableForAlert,
+  getArbitrageStats,
+  prepareOpportunitiesForDisplay,
+  getMarketStatistics,
+  loadArbitrageDataCentralized,
+  loadArbitrageDataFromChainService,
+  ARBITRAGE_CONFIG,
+} from "@/lib/arbitrage-utils";
 import type { ArbitrageOpportunity } from "@/types";
 
 export default function ArbitragePage() {
+  // Chain service integration
+  const {
+    selectedChain,
+    tokensForSelectedChain,
+    tokenPrices,
+    isLoading: isChainLoading,
+  } = useChainService();
+
   const [opportunities, setOpportunities] = useState<ArbitrageOpportunity[]>(
     []
   );
@@ -31,6 +52,11 @@ export default function ArbitragePage() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
+    // Wait for chain service to be ready
+    if (isChainLoading || !selectedChain) {
+      return;
+    }
+
     // First try to load from cache for immediate display
     loadCachedData();
 
@@ -46,7 +72,7 @@ export default function ArbitragePage() {
     if (typeof window !== "undefined") {
       setLastUpdated(new Date());
     }
-  }, []);
+  }, [selectedChain, isChainLoading]); // Re-run when chain changes
 
   const loadCachedData = () => {
     if (typeof window === "undefined") return;
@@ -77,41 +103,53 @@ export default function ArbitragePage() {
   };
 
   const loadArbitrageData = async () => {
+    // Ensure we have chain service data
+    if (
+      !selectedChain ||
+      Object.keys(tokenPrices).length === 0 ||
+      tokensForSelectedChain.length === 0
+    ) {
+      console.warn("Chain service not ready for arbitrage analysis");
+      return;
+    }
+
     // If we already have data from cache, show refreshing state
     if (!isLoading) {
       setIsRefreshing(true);
     }
 
     try {
-      // Add a cache-busting parameter to avoid any browser caching issues
-      const response = await fetch(`/api/arbitrage?t=${Date.now()}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch arbitrage data");
-      }
-
-      const data = await response.json();
-
-      // Check for high-profit opportunities and send notifications
-      if (notificationsEnabled) {
-        data.forEach((opportunity: ArbitrageOpportunity) => {
-          if (Math.abs(opportunity.profitPercent) >= alertThreshold) {
-            notificationService.notifyArbitrageOpportunity(
-              opportunity.symbol,
-              opportunity.profitPercent
-            );
+      // Use chain service data for arbitrage analysis
+      const result = await loadArbitrageDataFromChainService({
+        chainIndex: selectedChain.chainIndex,
+        tokenPrices,
+        tokensForChain: tokensForSelectedChain,
+        useCache: true,
+        cacheKey: `${CACHE_KEYS.ARBITRAGE_DATA}_chain_${selectedChain.chainIndex}`,
+        onDataLoaded: (data: ArbitrageOpportunity[], stats) => {
+          // Check for high-profit opportunities and send notifications
+          if (notificationsEnabled) {
+            data.forEach((opportunity: ArbitrageOpportunity) => {
+              if (isProfitableForAlert(opportunity, alertThreshold)) {
+                notificationService.notifyArbitrageOpportunity(
+                  opportunity.symbol,
+                  opportunity.profitPercent
+                );
+              }
+            });
           }
-        });
-      }
+        },
+        onError: (error: Error) => {
+          console.error("Error loading arbitrage data:", error);
+        },
+      });
 
-      setOpportunities(data);
+      setOpportunities(result.data);
 
       // Only update the timestamp on the client side
       if (typeof window !== "undefined") {
         const currentTime = new Date();
         setLastUpdated(currentTime);
-
-        // Cache the data
-        saveToCache(CACHE_KEYS.ARBITRAGE_DATA, data);
       }
     } catch (error) {
       console.error("Error loading arbitrage data:", error);
@@ -162,56 +200,49 @@ export default function ArbitragePage() {
     );
   };
 
-  // Filter out duplicate tokens by symbol and keep the one with higher profit percent
+  // Calculate all stats using centralized utility for consistency
+  const arbitrageStats = useMemo(() => {
+    return getArbitrageStats(opportunities);
+  }, [opportunities]);
+
+  // Use centralized display preparation
+  const displayOpportunities = useMemo(() => {
+    return prepareOpportunitiesForDisplay(opportunities, {
+      useUniqueOnly: true,
+      minThreshold: ARBITRAGE_CONFIG.THRESHOLDS.MINIMUM_SPREAD,
+      sortByProfit: true,
+    });
+  }, [opportunities]);
+
+  // Backward compatibility for existing code
   const uniqueOpportunities = useMemo(() => {
-    return opportunities.reduce((unique: ArbitrageOpportunity[], opp) => {
-      const existingIndex = unique.findIndex(
-        (item) => item.symbol === opp.symbol
-      );
-      if (existingIndex === -1) {
-        unique.push(opp);
-      } else if (
-        Math.abs(opp.profitPercent) >
-        Math.abs(unique[existingIndex].profitPercent)
-      ) {
-        unique[existingIndex] = opp;
-      }
-      return unique;
-    }, []);
+    return filterUniqueOpportunities(opportunities);
   }, [opportunities]);
 
   const sortedOpportunities = useMemo(() => {
-    return [...uniqueOpportunities].sort(
-      (a, b) => Math.abs(b.profitPercent) - Math.abs(a.profitPercent)
-    );
+    return sortByProfitPercent(uniqueOpportunities);
   }, [uniqueOpportunities]);
 
   const profitableOpportunities = useMemo(() => {
-    return uniqueOpportunities.filter((op) => op.profitPercent > 0.1);
+    return filterProfitableOpportunities(
+      uniqueOpportunities,
+      ARBITRAGE_CONFIG.THRESHOLDS.MINIMUM_SPREAD
+    );
   }, [uniqueOpportunities]);
 
   const totalVolume = useMemo(() => {
-    return opportunities.reduce((sum, op) => sum + op.volume24h, 0);
-  }, [opportunities]);
+    return arbitrageStats.totalVolume;
+  }, [arbitrageStats]);
 
   const enableNotifications = async () => {
     const granted = await notificationService.requestPermission();
     setNotificationsEnabled(granted);
   };
 
-  // Optimize Best Spread calculation with useMemo
+  // Use centralized best spread calculation
   const bestSpread = useMemo(() => {
-    if (opportunities.length === 0) return "0%";
-
-    // Use a faster method than spread operator when possible
-    let max = -Infinity;
-    for (let i = 0; i < opportunities.length; i++) {
-      if (opportunities[i].profitPercent > max) {
-        max = opportunities[i].profitPercent;
-      }
-    }
-    return `${max.toFixed(2)}%`;
-  }, [opportunities]);
+    return `${arbitrageStats.bestSpread.toFixed(2)}%`;
+  }, [arbitrageStats]);
 
   // Limit the number of displayed opportunities based on device performance
   const renderOpportunityCards = useMemo(() => {
@@ -383,9 +414,7 @@ export default function ArbitragePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">Total Opportunities</p>
-                <p className="text-2xl font-bold">
-                  {uniqueOpportunities.length}
-                </p>
+                <p className="text-2xl font-bold">{arbitrageStats.unique}</p>
               </div>
               <Activity className="w-8 h-8 text-blue-400" />
             </div>
@@ -396,7 +425,7 @@ export default function ArbitragePage() {
               <div>
                 <p className="text-gray-400 text-sm">Profitable</p>
                 <p className="text-2xl font-bold text-green-400">
-                  {profitableOpportunities.length}
+                  {arbitrageStats.profitable}
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-400" />
@@ -408,7 +437,7 @@ export default function ArbitragePage() {
               <div>
                 <p className="text-gray-400 text-sm">24h Volume</p>
                 <p className="text-2xl font-bold">
-                  {formatVolume(totalVolume)}
+                  {formatVolume(arbitrageStats.totalVolume)}
                 </p>
               </div>
               <DollarSign className="w-8 h-8 text-yellow-400" />

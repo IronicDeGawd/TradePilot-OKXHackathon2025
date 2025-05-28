@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { okxService } from "@/lib/okx";
 import MarketOverview from "@/components/MarketOverview";
+import { getArbitrageStats, getMarketStatistics } from "@/lib/arbitrage-utils";
+import { CACHE_KEYS, getFromCache, saveToCache } from "@/lib/cache-utils";
 import type { ArbitrageOpportunity, TrendingToken } from "@/types";
 
 export default function HomePage() {
@@ -39,17 +41,16 @@ export default function HomePage() {
     if (typeof window === "undefined") return;
 
     try {
-      // Try to get cached data
-      const cachedData = localStorage.getItem("tradepilot-market-data");
-      if (cachedData) {
-        const parsedData = JSON.parse(cachedData);
-        // Check if cached data is less than 15 minutes old
-        const cachedTime = parsedData.timestamp || 0;
-        const isStale = Date.now() - cachedTime > 15 * 60 * 1000;
+      // Try to get cached data using centralized cache utilities
+      const cachedMarketData = getFromCache<{
+        topArbitrage: ArbitrageOpportunity | null;
+        topTrending: TrendingToken | null;
+        totalOpportunities: number;
+      }>("tradepilot-market-data");
 
-        setMarketStats(parsedData.data);
-        // If data is stale, we'll still show it but also refresh in background
-        setIsRefreshing(isStale);
+      if (cachedMarketData) {
+        setMarketStats(cachedMarketData.data);
+        setIsRefreshing(cachedMarketData.isStale);
       } else {
         // No cached data, show loading state
         setIsLoading(true);
@@ -72,26 +73,20 @@ export default function HomePage() {
         fetch("/api/trending").then((res) => res.json()),
       ]);
 
+      // Use centralized market statistics for consistency
+      const marketStats = getMarketStatistics(arbitrageData);
+
       const newStats = {
         topArbitrage: arbitrageData[0] || null,
         topTrending: trendingData[0] || null,
-        totalOpportunities: arbitrageData.filter(
-          (op: ArbitrageOpportunity) =>
-            op.profitPercent != null && Math.abs(op.profitPercent) > 0.5
-        ).length,
+        totalOpportunities: marketStats.counts.landingPage,
       };
 
       setMarketStats(newStats);
 
-      // Cache the new data
+      // Cache the new data using centralized cache utilities
       if (typeof window !== "undefined") {
-        localStorage.setItem(
-          "tradepilot-market-data",
-          JSON.stringify({
-            data: newStats,
-            timestamp: Date.now(),
-          })
-        );
+        saveToCache("tradepilot-market-data", newStats);
       }
     } catch (error) {
       console.error("Error loading market data:", error);

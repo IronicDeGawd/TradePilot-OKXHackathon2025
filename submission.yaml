@@ -1,0 +1,199 @@
+# OKX DEX Hackathon Submission
+project:
+  name: "TradePilot AI - OKX DEX Trading Platform"
+  tagline: "AI-Powered Cross-Chain Trading Platform with Advanced Market Intelligence"
+  track: "DeFi & Trading"
+  description: |
+    TradePilot AI is a comprehensive trading platform that leverages OKX DEX API for cross-chain
+    trading, arbitrage opportunities, and market intelligence. Features include AI-powered trading
+    chat, real-time arbitrage scanning, portfolio management, trending token analysis across
+    multiple blockchains, and enhanced wallet connectivity with auto-disconnect security.
+
+# Links
+demo:
+  live_url: "https://trade-pilot-ten.vercel.app"
+  video_url: "https://youtube.com/watch?v=your-demo-video"
+  presentation_url: ""
+
+
+repository_url: https://github.com/IronicDeGawd/TradePilot-OKXHackathon2025
+main_repo: true  # Indicates code is in external repo
+
+
+# Technical Stack
+technical:
+  frontend:
+    - "Next.js 15"
+    - "React 19"
+    - "TypeScript"
+    - "Tailwind CSS"
+    - "Responsive Design"
+    - "Real-time UI Updates"
+
+  backend:
+    - "Next.js API Routes"
+    - "OKX DEX API Integration"
+    - "OKX CEX API Integration"
+    - "Rate Limiting & Caching"
+    - "Cross-Origin Request Handling"
+    - "Authentication & Security"
+
+  ai_integration:
+    - "Google Gemini AI"
+    - "Trading Chat Assistant"
+    - "Market Analysis"
+    - "Risk Assessment"
+    - "Contextual Recommendations"
+
+  blockchain:
+    - "Solana Web3.js"
+    - "Cross-chain Support"
+    - "Wallet Integration (Phantom, MetaMask)"
+    - "Multi-chain Portfolio"
+    - "Auto-disconnect Security"
+
+# OKX DEX API Features Used
+okx_integration:
+  primary_features:
+    - name: "Cross-Chain Token Quotes"
+      description: "Real-time price quotes across multiple chains using OKX DEX aggregation"
+      endpoint: "/api/v5/dex/aggregator/quote"
+      implementation: "Implemented in okx-dex-api.ts with rate limiting and caching"
+
+    - name: "Swap Data & Execution"
+      description: "Complete swap transaction data with optimal routing"
+      endpoint: "/api/v5/dex/aggregator/swap-data"
+      implementation: "Swap quote API with real-time price calculations"
+
+    - name: "Market Price Data"
+      description: "Real-time token pricing across multiple chains"
+      endpoint: "/api/v5/dex/market/price"
+      implementation: "Batch price fetching with intelligent caching system"
+
+    - name: "Supported Chains & Tokens"
+      description: "Dynamic chain and token discovery for multi-chain support"
+      endpoint: "/api/v5/dex/aggregator/supported/chain"
+      implementation: "Solana-focused implementation with multi-chain configuration framework"
+
+    - name: "Trading History & Candlesticks"
+      description: "Historical trading data and market analysis"
+      endpoint: "/api/v5/dex/market/trades, /api/v5/dex/market/candles"
+      implementation: "Extended API service for trend analysis and market intelligence"
+
+    - name: "Cross-Chain Price Comparison"
+      description: "Arbitrage opportunities by comparing prices across different chains"
+      implementation: "Custom arbitrage scanner using multiple chain queries with profit calculations"
+
+  creative_usage:
+    - "AI-powered trading recommendations based on real-time OKX DEX market data"
+    - "Advanced arbitrage opportunity detection across DEX and CEX platforms"
+    - "Portfolio valuation using OKX DEX pricing for accurate multi-chain assessment"
+    - "Trending token analysis with OKX DEX liquidity, volume, and price momentum data"
+    - "Risk-adjusted trading suggestions using historical OKX DEX trading patterns"
+    - "Intelligent rate limiting and retry mechanisms for optimal API performance"
+    - "CORS-safe proxy implementation for seamless frontend-backend integration"
+
+# Team Information
+team:
+  size: 1
+  members:
+    - name: "Aditya Srivastava"
+      role: "Full Stack Web3 Developer"
+      github: "IronicDeGawd"
+      email: "adityasrivastava807@gmail.com"
+
+# Project Highlights
+highlights:
+  innovation:
+    - "First AI-powered trading assistant specifically designed for OKX DEX with real-time market integration"
+    - "Advanced arbitrage detection algorithm across DEX and CEX platforms with profit calculations"
+    - "Comprehensive portfolio management with cross-chain support and AI-generated suggestions"
+    - "Real-time market intelligence with trending analysis using actual OKX DEX trading data"
+    - "Enhanced wallet security with auto-disconnect and session management features"
+
+  technical_achievements:
+    - "Efficient API rate limiting and intelligent caching system for optimal performance"
+    - "CORS-safe proxy implementation for seamless API integration"
+    - "Responsive design supporting both desktop and mobile trading with optimized UX"
+    - "Robust error handling with retry mechanisms and fallback strategies"
+    - "Scalable architecture supporting 10+ blockchain networks and multiple trading strategies"
+    - "Real-time price monitoring with batch processing for improved efficiency"
+
+  user_experience:
+    - "Intuitive chat interface for natural language trading queries with AI context"
+    - "Visual arbitrage opportunities dashboard with clear profit calculations and risk assessment"
+    - "Comprehensive portfolio dashboard with performance metrics and rebalancing suggestions"
+    - "Educational features promoting responsible trading practices and risk awareness"
+    - "Enhanced wallet connectivity with auto-disconnect security and session timeout"
+    - "Mobile-optimized interface with adaptive rendering for all screen sizes"
+
+# Deployment & Setup
+deployment:
+  requirements:
+    - "Node.js 18+"
+    - "OKX DEX API Key"
+    - "OKX CEX API Credentials"
+    - "Google Gemini AI API Key"
+    - "Vercel/Netlify for deployment"
+
+  setup_time: "5 minutes"
+  demo_ready: true
+
+  environment_variables:
+    - "OKX_PROJECT_ID"
+    - "OKX_API_KEY"
+    - "OKX_SECRET_KEY"
+    - "OKX_API_PASSPHRASE"
+    - "GEMINI_API_KEY"
+    - "NEXT_PUBLIC_APP_URL"
+    - "SOLANA_RPC_URL"
+    - "NEXT_PUBLIC_SOLANA_WALLET_ADDRESS"
+
+# Additional Information
+additional:
+  license: "MIT"
+  open_source: true
+  documentation_quality: "Comprehensive with detailed README and code comments"
+  test_coverage: "Core functionality tested with integration test scripts"
+  performance_optimizations:
+    - "60-second intelligent caching for price data"
+    - "Rate limiting with exponential backoff"
+    - "Batch API requests for efficiency"
+    - "Background refresh mechanisms"
+    - "Mobile optimization and lazy loading"
+
+  security_features:
+    - "Environment-based credential management"
+    - "HMAC-SHA256 request signing"
+    - "Input validation and sanitization"
+    - "Auto-disconnect wallet security"
+    - "Error boundaries and graceful failures"
+
+  future_plans:
+    - "Advanced trading strategies and backtesting capabilities"
+    - "Social trading features and copy trading functionality"
+    - "Mobile app development for iOS and Android"
+    - "Integration with additional DEX protocols and CEX platforms"
+    - "Advanced analytics, reporting, and portfolio optimization features"
+    - "Multi-language support and localization"
+
+# Submission Metadata
+submission:
+  timestamp: "2025-05-27"
+  version: "1.0.0"
+  category: "DeFi Trading Platform"
+  hackathon: "OKX DEX Hackathon 2025"
+
+  code_quality:
+    - "TypeScript for type safety"
+    - "Modular architecture with separation of concerns"
+    - "Comprehensive error handling"
+    - "Clean code principles and best practices"
+    - "Extensive commenting and documentation"
+
+  api_usage_statistics:
+    - "5+ OKX DEX API endpoints integrated"
+    - "3+ OKX CEX API endpoints utilized"
+    - "Real-time price monitoring for 20+ tokens"
+    - "Cross-chain support for 10+ blockchain networks"
+    - "Batch processing for up to 20 tokens simultaneously"

@@ -16,9 +16,11 @@ import {
   AlertCircle,
 } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { okxService } from "@/lib/okx";
+import CandlePopup from "@/components/CandlePopup";
+import { useChainService } from "@/lib/use-chain-service";
+import { trendingService } from "@/lib/trending-service";
 import { CACHE_KEYS, getFromCache, saveToCache } from "@/lib/cache-utils";
-import type { TrendingToken } from "@/types";
+import type { TrendingToken } from "@/lib/trending-service";
 
 // Default trending data to show while API loads
 const DEFAULT_TRENDING_TOKENS: TrendingToken[] = [
@@ -47,6 +49,9 @@ const DEFAULT_TRENDING_TOKENS: TrendingToken[] = [
 ];
 
 export default function TrendingPage() {
+  // Chain service integration
+  const { selectedChain, isLoading: isChainLoading } = useChainService();
+
   // Start with default data while real data loads
   const [trendingTokens, setTrendingTokens] = useState<TrendingToken[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +63,10 @@ export default function TrendingPage() {
   // Timeframe switching is WIP - currently all data is 24h
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Candle popup state
+  const [selectedToken, setSelectedToken] = useState<string | null>(null);
+  const [showCandlePopup, setShowCandlePopup] = useState(false);
 
   useEffect(() => {
     // Set mounted state to prevent hydration errors
@@ -77,7 +86,7 @@ export default function TrendingPage() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [selectedChain]); // Re-run when selected chain changes
 
   const loadCachedData = () => {
     if (typeof window === "undefined") return;
@@ -125,23 +134,19 @@ export default function TrendingPage() {
     }
 
     try {
-      console.log("Fetching trending data from API...");
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      console.log("Analyzing trending tokens using chain service...");
 
-      const response = await fetch("/api/trending", {
-        signal: controller.signal,
-        cache: "no-store",
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch trending data: ${response.status}`);
+      // Use trending service with chain service integration
+      const chainIndex = selectedChain?.chainIndex;
+      if (!chainIndex) {
+        console.warn("No chain selected for trending analysis");
+        setIsLoading(false);
+        setIsRefreshing(false);
+        return;
       }
 
-      const data = await response.json();
-      console.log(`Received ${data.length} trending tokens from API`);
+      const data = await trendingService.analyzeTrendingTokens(chainIndex);
+      console.log(`Received ${data.length} trending tokens from analysis`);
 
       if (Array.isArray(data) && data.length > 0) {
         setTrendingTokens(data);
@@ -152,16 +157,17 @@ export default function TrendingPage() {
           saveToCache(CACHE_KEYS.TRENDING_DATA, data);
         }
       } else {
-        console.error("API returned empty or invalid trending data");
+        console.warn("No trending data received from analysis");
+        // Keep existing data if available
+        if (trendingTokens.length === 0) {
+          setTrendingTokens(DEFAULT_TRENDING_TOKENS);
+        }
       }
     } catch (error) {
       console.error("Error loading trending data:", error);
-      // If we have cached data, keep using it
-      const cachedTrending = getFromCache<TrendingToken[]>(
-        CACHE_KEYS.TRENDING_DATA
-      );
-      if (cachedTrending && !trendingTokens.length) {
-        setTrendingTokens(cachedTrending.data);
+      // Keep existing data on error, or use defaults
+      if (trendingTokens.length === 0) {
+        setTrendingTokens(DEFAULT_TRENDING_TOKENS);
       }
     } finally {
       setIsLoading(false);
@@ -242,6 +248,16 @@ export default function TrendingPage() {
     ) : (
       <TrendingDown className="w-4 h-4" />
     );
+  };
+
+  const handleTokenClick = (symbol: string) => {
+    setSelectedToken(symbol);
+    setShowCandlePopup(true);
+  };
+
+  const handleCloseCandlePopup = () => {
+    setShowCandlePopup(false);
+    setSelectedToken(null);
   };
 
   return (
@@ -408,12 +424,17 @@ export default function TrendingPage() {
         <div className="card">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">🔥 Trending Tokens</h2>
-            {isRefreshing && (
-              <span className="flex items-center text-sm text-blue-400">
-                <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-                Refreshing data...
-              </span>
-            )}
+            <div className="flex items-center space-x-4">
+              <p className="text-sm text-gray-400 hidden md:block">
+                Click any token to view 1H candle data
+              </p>
+              {isRefreshing && (
+                <span className="flex items-center text-sm text-blue-400">
+                  <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                  Refreshing data...
+                </span>
+              )}
+            </div>
           </div>
 
           {isLoading ? (
@@ -443,7 +464,8 @@ export default function TrendingPage() {
                 {getSortedTokens().map((token, index) => (
                   <div
                     key={index}
-                    className="group p-4 bg-dark-bg md:bg-transparent rounded-lg md:rounded-none border border-dark-border md:border-0 md:border-b md:border-dark-border hover:bg-dark-card/50 transition-colors md:grid md:grid-cols-8 md:gap-4 md:items-center relative"
+                    className="group p-4 bg-dark-bg md:bg-transparent rounded-lg md:rounded-none border border-dark-border md:border-0 md:border-b md:border-dark-border hover:bg-dark-card/50 transition-colors md:grid md:grid-cols-8 md:gap-4 md:items-center relative cursor-pointer"
+                    onClick={() => handleTokenClick(token.symbol)}
                   >
                     {/* Token Info - Mobile: Full width, Desktop: 2 columns */}
                     <div className="col-span-2 flex items-center space-x-3 mb-4 md:mb-0">
@@ -579,12 +601,18 @@ export default function TrendingPage() {
                           {token.trendScore.toFixed(2)}
                         </p>
                       </div>
-                      <Link
-                        href="/chat"
-                        className="btn-secondary text-xs px-3 py-1"
-                      >
-                        Analyze
-                      </Link>
+                      <div className="flex flex-col space-y-1">
+                        <Link
+                          href="/chat"
+                          className="btn-secondary text-xs px-3 py-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Analyze
+                        </Link>
+                        <p className="text-xs text-gray-400 text-center">
+                          Tap for candles
+                        </p>
+                      </div>
                     </div>
 
                     {/* Desktop: Analyze button overlay on hover */}
@@ -592,6 +620,7 @@ export default function TrendingPage() {
                       <Link
                         href="/chat"
                         className="btn-secondary text-sm px-3 py-1"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         Analyze
                       </Link>
@@ -623,6 +652,13 @@ export default function TrendingPage() {
           </div>
         </div>
       </div>
+
+      {/* Candle Popup */}
+      <CandlePopup
+        symbol={selectedToken || ""}
+        isOpen={showCandlePopup}
+        onClose={handleCloseCandlePopup}
+      />
     </div>
   );
 }

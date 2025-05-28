@@ -186,6 +186,52 @@ class OKXCEXService {
     }
   }
 
+  async getCandleData(symbol: string, timeframe: string = '1H', limit: number = 24): Promise<OKXCandle[]> {
+    try {
+      // Construct the trading pair (try USDT first, then USDC)
+      const pairs = [`${symbol}-USDT`, `${symbol}-USDC`];
+
+      for (const instId of pairs) {
+        try {
+          const requestPath = `/api/v5/market/candles?instId=${instId}&bar=${timeframe}&limit=${limit}`;
+          const headers = this.getHeaders('GET', requestPath);
+
+          const response = await fetch(`${this.config.baseUrl}${requestPath}`, {
+            method: 'GET',
+            headers
+          });
+
+          if (!response.ok) {
+            continue; // Try next pair if this one fails
+          }
+
+          const data = await response.json();
+
+          if (data.code === '0' && data.data && data.data.length > 0) {
+            // Transform the data to match our interface
+            return data.data.map((candle: string[]) => ({
+              ts: candle[0],
+              o: candle[1],
+              h: candle[2],
+              l: candle[3],
+              c: candle[4],
+              vol: candle[5],
+              volCcy: candle[6]
+            }));
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch candles for ${instId}:`, error);
+          continue;
+        }
+      }
+
+      return [];
+    } catch (error) {
+      console.error(`Error fetching candle data for ${symbol}:`, error);
+      return [];
+    }
+  }
+
   private getTokenAddress(symbol: string): string {
     const token = getTokenBySymbol(symbol);
     return token?.address || '';

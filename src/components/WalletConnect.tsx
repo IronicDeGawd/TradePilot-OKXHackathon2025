@@ -25,13 +25,116 @@ export default function WalletConnect() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showWalletOptions, setShowWalletOptions] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [autoDisconnectTimer, setAutoDisconnectTimer] =
+    useState<NodeJS.Timeout | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     // Check if mobile device
     setIsMobile(isMobileDevice());
     // Check if already connected
     checkExistingConnection();
+    // Set up auto-disconnect timer
+    setupAutoDisconnect();
+
+    // Cleanup timer on unmount
+    return () => {
+      if (autoDisconnectTimer) {
+        clearTimeout(autoDisconnectTimer);
+      }
+    };
   }, []);
+
+  // Auto-disconnect after 1 hour (3600000 ms)
+  const setupAutoDisconnect = () => {
+    // Clear any existing timer
+    if (autoDisconnectTimer) {
+      clearTimeout(autoDisconnectTimer);
+      setAutoDisconnectTimer(null);
+    }
+
+    if (typeof window !== "undefined") {
+      const connectionTime = localStorage.getItem("walletConnectionTime");
+      const now = Date.now();
+
+      if (connectionTime) {
+        const timeElapsed = now - parseInt(connectionTime);
+        const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+
+        if (timeElapsed >= oneHour) {
+          // Connection has expired, disconnect immediately
+          disconnectWallet();
+          return;
+        }
+
+        // Set timer for remaining time
+        const remainingTime = oneHour - timeElapsed;
+        const timer = setTimeout(() => {
+          console.log("Auto-disconnecting wallet after 1 hour of inactivity");
+          disconnectWallet();
+        }, remainingTime);
+
+        setAutoDisconnectTimer(timer);
+        console.log(
+          `Wallet will auto-disconnect in ${Math.round(
+            remainingTime / 1000 / 60
+          )} minutes`
+        );
+      }
+    }
+  };
+
+  const setConnectionTime = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("walletConnectionTime", Date.now().toString());
+    }
+  };
+
+  const clearConnectionTime = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("walletConnectionTime");
+    }
+  };
+
+  const updateTimeRemaining = () => {
+    if (typeof window !== "undefined") {
+      const connectionTime = localStorage.getItem("walletConnectionTime");
+      if (connectionTime) {
+        const now = Date.now();
+        const timeElapsed = now - parseInt(connectionTime);
+        const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+        const remaining = oneHour - timeElapsed;
+
+        if (remaining > 0) {
+          setTimeRemaining(remaining);
+        } else {
+          setTimeRemaining(null);
+        }
+      }
+    }
+  };
+
+  // Update time remaining every minute
+  useEffect(() => {
+    if (wallet.isConnected) {
+      updateTimeRemaining();
+      const interval = setInterval(updateTimeRemaining, 60000); // Update every minute
+      return () => clearInterval(interval);
+    } else {
+      setTimeRemaining(null);
+    }
+  }, [wallet.isConnected]);
+
+  const formatTimeRemaining = (ms: number) => {
+    const minutes = Math.floor(ms / 1000 / 60);
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${remainingMinutes}m`;
+    }
+    return `${remainingMinutes}m`;
+  };
 
   const checkExistingConnection = async () => {
     try {
@@ -58,6 +161,9 @@ export default function WalletConnect() {
             network: "solana",
             isDemo: false,
           });
+          // Set connection time for existing connections
+          setConnectionTime();
+          setupAutoDisconnect(); // Restart auto-disconnect timer
         }
       }
     } catch (error) {
@@ -84,7 +190,9 @@ export default function WalletConnect() {
         // Store demo mode in localStorage
         if (typeof window !== "undefined") {
           localStorage.setItem("walletMode", "demo");
+          setConnectionTime();
         }
+        setupAutoDisconnect(); // Restart auto-disconnect timer
       } else {
         // Fallback to local generation if API fails
         const demoWallet = solanaWallet.generateDemoWallet();
@@ -99,7 +207,9 @@ export default function WalletConnect() {
         // Store demo mode in localStorage
         if (typeof window !== "undefined") {
           localStorage.setItem("walletMode", "demo");
+          setConnectionTime();
         }
+        setupAutoDisconnect(); // Restart auto-disconnect timer
       }
     } catch (error) {
       console.error("Error connecting demo wallet:", error);
@@ -116,7 +226,9 @@ export default function WalletConnect() {
       // Store demo mode in localStorage
       if (typeof window !== "undefined") {
         localStorage.setItem("walletMode", "demo");
+        setConnectionTime();
       }
+      setupAutoDisconnect(); // Restart auto-disconnect timer
     }
   };
 
@@ -145,6 +257,9 @@ export default function WalletConnect() {
         if (typeof window !== "undefined") {
           localStorage.setItem("walletMode", "real");
         }
+
+        setConnectionTime(); // Set connection time
+        setupAutoDisconnect(); // Restart auto-disconnect timer
       } else {
         // Use environment wallet if Phantom is not available
         const envWalletAddress = process.env.NEXT_PUBLIC_SOLANA_WALLET_ADDRESS;
@@ -162,6 +277,9 @@ export default function WalletConnect() {
           if (typeof window !== "undefined") {
             localStorage.setItem("walletMode", "real");
           }
+
+          setConnectionTime(); // Set connection time
+          setupAutoDisconnect(); // Restart auto-disconnect timer
         } else {
           console.error(
             "No Phantom wallet found and no environment wallet configured"
@@ -213,6 +331,9 @@ export default function WalletConnect() {
           if (typeof window !== "undefined") {
             localStorage.setItem("walletMode", "real");
           }
+
+          setConnectionTime(); // Set connection time
+          setupAutoDisconnect(); // Restart auto-disconnect timer
         }
       }
     } catch (error) {
@@ -235,6 +356,12 @@ export default function WalletConnect() {
   };
 
   const disconnectWallet = () => {
+    // Clear auto-disconnect timer
+    if (autoDisconnectTimer) {
+      clearTimeout(autoDisconnectTimer);
+      setAutoDisconnectTimer(null);
+    }
+
     if (
       wallet.network === "solana" &&
       typeof window !== "undefined" &&
@@ -251,9 +378,10 @@ export default function WalletConnect() {
       isDemo: false,
     });
 
-    // Clear wallet mode from localStorage
+    // Clear wallet mode and connection time from localStorage
     if (typeof window !== "undefined") {
       localStorage.removeItem("walletMode");
+      localStorage.removeItem("walletConnectionTime");
     }
   };
 
@@ -298,6 +426,17 @@ export default function WalletConnect() {
                         ? "ETH"
                         : "SOL"}
                     </span>
+                    {timeRemaining && !wallet.isDemo && (
+                      <>
+                        <span className="text-xs text-gray-400">|</span>
+                        <span
+                          className="text-xs text-gray-400"
+                          title="Auto-disconnect in"
+                        >
+                          🕒 {formatTimeRemaining(timeRemaining)}
+                        </span>
+                      </>
+                    )}
                   </>
                 )}
                 {isMobile && (
@@ -316,12 +455,25 @@ export default function WalletConnect() {
                 </button>
               )}
             </div>
+
+            {/* Enhanced Disconnect Button */}
             <button
-              onClick={disconnectWallet}
-              className="p-2 text-gray-400 hover:text-red-400 transition-colors bg-gray-800/50 rounded-lg hover:bg-gray-700/50"
+              onClick={() => {
+                if (
+                  confirm(
+                    "Are you sure you want to disconnect your wallet? Your session will be cleared from cache and browser."
+                  )
+                ) {
+                  disconnectWallet();
+                }
+              }}
+              className="flex items-center space-x-1 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all bg-gray-800/50 rounded-lg border border-red-500/30 hover:border-red-400/50 shadow-sm"
               title="Disconnect Wallet"
             >
               <LogOut className="w-4 h-4" />
+              {!isMobile && (
+                <span className="text-xs font-medium">Disconnect</span>
+              )}
             </button>
           </div>
         </div>

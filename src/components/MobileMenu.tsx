@@ -11,12 +11,14 @@ import {
   TrendingUp,
   BarChart3,
   Home,
+  ArrowLeftRight,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/chat", icon: MessageSquare, label: "AI Chat" },
   { href: "/portfolio", icon: Wallet, label: "Portfolio" },
+  { href: "/swap", icon: ArrowLeftRight, label: "Swap" },
   { href: "/arbitrage", icon: BarChart3, label: "Arbitrage" },
   { href: "/trending", icon: TrendingUp, label: "Trending" },
 ];
